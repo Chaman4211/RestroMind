@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Frontend
+node_modules/
+dist/
+
+# Database and local data
+*.db
+*.sqlite3
+data/
+outputs/
+
+# AI model weights
+*.pt
+*.onnx
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
+
+# Test coverage reports
+.coverage
+.coverage.*
+htmlcov/

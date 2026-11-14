@@ -1,0 +1,181 @@
+.zone-overlay {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.zone-overlay.drawing {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.zone-polygon {
+  fill: #65d58a35;
+  stroke: #83e6a0;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.zone-line {
+  fill: none;
+  stroke: #83e6a0;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.zone-point {
+  fill: #f4fff5;
+  stroke: #2d9b56;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.zone-editor-panel {
+  display: grid;
+  gap: 13px;
+  padding: 17px 18px 19px;
+  border-top: 1px solid #edf0eb;
+}
+
+.zone-editor-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.zone-editor-title {
+  color: #354b3a;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.zone-editor-heading p {
+  margin: 5px 0 0;
+  color: #89938b;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.zone-point-count {
+  flex-shrink: 0;
+  padding: 5px 9px;
+  border-radius: 20px;
+  background: #edf3ed;
+  color: #52765a;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.zone-editor-field {
+  display: grid;
+  gap: 7px;
+  max-width: 360px;
+}
+
+.zone-editor-field span {
+  color: #758078;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.zone-editor-field select {
+  width: 100%;
+  height: 39px;
+  padding: 0 10px;
+  border: 1px solid #e4e9e2;
+  border-radius: 7px;
+  outline: none;
+  background: #fff;
+  color: #35483a;
+  font: inherit;
+  font-size: 11px;
+}
+
+.zone-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.zone-editor-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.zone-editor-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.zone-primary-button {
+  background: #315b40;
+  color: #fff;
+}
+
+.zone-primary-button:hover:not(:disabled) {
+  background: #244a32;
+}
+
+.zone-secondary-button {
+  border: 1px solid #e2e9e1 !important;
+  background: #f7f9f6;
+  color: #526b57;
+}
+
+.zone-save-button {
+  background: #eaf3e9;
+  color: #47734f;
+}
+
+.zone-save-button:hover:not(:disabled) {
+  background: #dcebdc;
+}
+
+.zone-editor-hint {
+  color: #89938b;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.zone-editor-message {
+  padding: 9px 11px;
+  border: 1px solid #f0dfc5;
+  border-radius: 7px;
+  background: #fff9ef;
+  color: #946c34;
+  font-size: 10px;
+}
+
+.zone-editor-message.success {
+  border-color: #dcebdc;
+  background: #f0f7ef;
+  color: #47734f;
+}
+
+@media (max-width: 520px) {
+  .zone-editor-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .zone-editor-actions button {
+    width: 100%;
+  }
+}

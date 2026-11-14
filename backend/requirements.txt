@@ -1,0 +1,27 @@
+# API and application
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+
+# Database
+sqlalchemy
+alembic
+psycopg[binary]
+
+# Computer vision and local AI
+ultralytics
+opencv-python-headless
+
+# Utilities
+python-multipart
+
+# Testing
+pytest
+pytest-cov
+httpx
+
+# Code quality
+ruff
+
+lap>=0.5.12
