@@ -9,6 +9,7 @@ import {
   Users,
   Wifi,
   WifiOff,
+  Film,
 } from 'lucide-react'
 import {
   getCameraSources,
@@ -17,6 +18,7 @@ import {
   type RestaurantTable,
 } from '../services/api'
 import TableZoneEditor from './TableZoneEditor'
+import UploadVideo from './UploadVideo'
 import './LiveMonitoring.css'
 
 type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected'
@@ -56,6 +58,7 @@ function LiveMonitoring() {
   const [latestResult, setLatestResult] = useState<FrameResult | null>(null)
   const [lastFrameTime, setLastFrameTime] = useState('')
   const [mirrorCamera, setMirrorCamera] = useState(false)
+  const [monitoringMode, setMonitoringMode] = useState<'live' | 'upload'>('live')
 
   const {
     data: cameraSources = [],
@@ -349,7 +352,24 @@ function LiveMonitoring() {
           </div>
       </div>
 
-      <>
+      <div className="monitoring-mode-tabs">
+        <button
+          type="button"
+          className={monitoringMode === 'live' ? 'active' : ''}
+          onClick={() => setMonitoringMode('live')}
+        >
+          <Wifi size={14} /> Live camera
+        </button>
+        <button
+          type="button"
+          className={monitoringMode === 'upload' ? 'active' : ''}
+          onClick={() => setMonitoringMode('upload')}
+        >
+          <Film size={14} /> Upload video
+        </button>
+      </div>
+
+      {monitoringMode === 'upload' ? <UploadVideo /> : <>
       {message && (
         <div className="live-message" role="status">
           <AlertCircle size={16} />
@@ -572,7 +592,7 @@ function LiveMonitoring() {
         <Wifi size={14} />
         Frame processing runs one frame at a time to avoid overloading the local CPU.
       </div>
-      </>
+      </>}
     </div>
   )
 }

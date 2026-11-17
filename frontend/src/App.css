@@ -860,3 +860,22 @@
     flex-direction: column;
   }
 }
+
+.profile-logout {
+  margin-left: auto;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid #34483a;
+  border-radius: 8px;
+  background: transparent;
+  color: #aebbb1;
+  cursor: pointer;
+}
+
+.profile-logout:hover {
+  background: #2c4936;
+  color: #fff;
+}

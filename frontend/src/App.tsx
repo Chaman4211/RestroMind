@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   confirmTableCleaning,
@@ -15,12 +15,12 @@ import {
   Bell,
   CalendarDays,
   CheckCircle2,
-  ChevronDown,
   CircleHelp,
   ClipboardList,
   Clock3,
   Coffee,
   LayoutDashboard,
+  LogOut,
   Menu,
   MonitorPlay,
   Plus,
@@ -35,6 +35,10 @@ import {
   X,
 } from 'lucide-react'
 import LiveMonitoring from './components/LiveMonitoring'
+import TableManagement from './components/TableManagement'
+import CleaningTasks from './components/CleaningTasks'
+import Staff from './components/Staff'
+import { useAuth } from './components/AuthGate'
 import './App.css'
 
 type TableStatus = 'free' | 'occupied' | 'cleaning'
@@ -92,6 +96,24 @@ function formatAlertTime(value: string): string {
 }
 
 function App() {
+  const { user, logout } = useAuth()
+  const [currentDate, setCurrentDate] = useState<Date | null>(null)
+
+  useEffect(() => {
+    const updateDate = () => setCurrentDate(new Date())
+    updateDate()
+
+    const interval = window.setInterval(updateDate, 60_000)
+    return () => window.clearInterval(interval)
+  }, [])
+
+  const greeting = !currentDate
+    ? 'Good day.'
+    : currentDate.getHours() < 12
+      ? 'Good morning.'
+      : currentDate.getHours() < 17
+        ? 'Good afternoon.'
+        : 'Good evening.'
   const [activeNav, setActiveNav] = useState('Overview')
   const [filter, setFilter] = useState<'all' | TableStatus>('all')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -176,9 +198,6 @@ function App() {
               onClick={() => {
                 setActiveNav(label)
                 setMobileNavOpen(false)
-                if (label !== 'Overview' && label !== 'Live monitoring') {
-                  showNotice(`${label} workspace is coming next.`)
-                }
               }}
             >
               <Icon size={17} strokeWidth={1.8} />
@@ -210,12 +229,28 @@ function App() {
             </button>
           </div>
           <div className="profile">
-            <div className="avatar">RM</div>
-            <div className="profile-copy">
-              <div className="profile-name">Restaurant Manager</div>
-              <div className="profile-role">Workspace admin</div>
+            <div className="avatar">
+              {user.name
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part[0].toUpperCase())
+                .join('')}
             </div>
-            <ChevronDown size={15} color="#91a094" />
+            <div className="profile-copy">
+              <div className="profile-name">{user.name}</div>
+              <div className="profile-role">
+                {user.role.replaceAll('_', ' ')}
+              </div>
+            </div>
+            <button
+              className="profile-logout"
+              onClick={logout}
+              title="Sign out"
+              aria-label="Sign out"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
       </aside>
@@ -229,7 +264,7 @@ function App() {
             <span>Workspace</span><span>/</span><strong>{activeNav}</strong>
           </div>
           <div className="topbar-actions">
-            <div className="date-chip"><CalendarDays size={14} /> Friday, November 13</div>
+            <div className="date-chip"><CalendarDays size={14} /> {currentDate?.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) ?? ""}</div>
             <button
               className="icon-button"
               aria-label={`Notifications, ${openAlerts.length} open alerts`}
@@ -251,9 +286,6 @@ function App() {
               <button key={label} onClick={() => {
                 setActiveNav(label)
                 setMobileNavOpen(false)
-                if (label !== 'Overview' && label !== 'Live monitoring') {
-                  showNotice(`${label} workspace is coming next.`)
-                }
               }} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '9px 11px', border: 0, borderRadius: 8, background: activeNav === label ? '#426348' : '#263a2d', color: '#fff', fontSize: 11 }}>
                 <Icon size={14} />{label}
               </button>
@@ -261,14 +293,28 @@ function App() {
           </div>
         )}
 
-        {activeNav === 'Live monitoring' ? (
+        <div style={{ display: activeNav === 'Table management' ? 'block' : 'none' }}>
+          <TableManagement />
+        </div>
+
+        <div style={{ display: activeNav === 'Live monitoring' ? 'block' : 'none' }}>
           <LiveMonitoring />
-        ) : (
+        </div>
+
+        <div style={{ display: activeNav === 'Cleaning tasks' ? 'block' : 'none' }}>
+          <CleaningTasks />
+        </div>
+
+        <div style={{ display: activeNav === 'Staff' ? 'block' : 'none' }}>
+          <Staff />
+        </div>
+
+        <div style={{ display: activeNav === 'Overview' ? 'block' : 'none' }}>
         <div className="content">
           <div className="welcome-row">
             <div>
-              <div className="eyebrow">Friday service overview</div>
-              <h1 className="page-title">Good afternoon.</h1>
+              <div className="eyebrow">Daily service overview</div>
+              <h1 className="page-title">{greeting}</h1>
               <p className="page-subtitle">Here’s what’s happening across your restaurant today.</p>
             </div>
             <button className="primary-button" onClick={() => showNotice('Table setup will be connected to the API next.')}>
@@ -471,7 +517,7 @@ function App() {
                   )}
                 </div>
                 <div className="alert-footer">
-                  <button className="text-action" onClick={() => { setActiveNav('Cleaning tasks'); showNotice('Cleaning task list is coming soon.') }}>
+                  <button className="text-action" onClick={() => setActiveNav('Cleaning tasks')}>
                     Open cleaning tasks <ArrowRight size={12} style={{ verticalAlign: 'middle' }} />
                   </button>
                 </div>
@@ -524,7 +570,7 @@ function App() {
             <span><ShieldCheck size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />Built for smarter service</span>
           </div>
         </div>
-        )}
+        </div>
       </main>
 
       {notice && (

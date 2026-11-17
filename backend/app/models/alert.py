@@ -17,6 +17,12 @@ class Alert(Base):
         index=True,
     )
 
+    assigned_staff_id: Mapped[int | None] = mapped_column(
+        ForeignKey("staff_users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     alert_type: Mapped[str] = mapped_column(String(30), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
 
@@ -37,3 +43,6 @@ class Alert(Base):
     )
 
     restaurant_table = relationship("RestaurantTable", back_populates="alerts")
+    assigned_staff = relationship(
+        "StaffUser", back_populates="assigned_alerts"
+    )
