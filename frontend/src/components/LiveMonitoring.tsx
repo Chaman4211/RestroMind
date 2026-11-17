@@ -40,7 +40,7 @@ type FrameResult = {
 
 function LiveMonitoring() {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const previewRef = useRef<HTMLDivElement>(null)
+  const [previewElement, setPreviewElement] = useState<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const socketRef = useRef<WebSocket | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -83,11 +83,13 @@ function LiveMonitoring() {
       table.zone_coordinates !== null && table.camera_source_id !== null,
   )
 
-  useEffect(() => {
-    if (!selectedSource && liveSources.length > 0) {
-      setSelectedSource(String(liveSources[0].id))
-    }
-  }, [liveSources, selectedSource])
+  const activeSelectedSource = liveSources.some(
+    (source) => String(source.id) === selectedSource,
+  )
+    ? selectedSource
+    : liveSources.length > 0
+      ? String(liveSources[0].id)
+      : ''
 
   useEffect(() => {
     let mounted = true
@@ -170,7 +172,7 @@ function LiveMonitoring() {
     setMessage('')
     setLatestResult(null)
 
-    if (!selectedSource) {
+    if (!activeSelectedSource) {
       setMessage('Please select an active LIVE camera source first.')
       return
     }
@@ -211,7 +213,7 @@ function LiveMonitoring() {
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const socketUrl =
-        `${protocol}//${window.location.host}/api/v1/camera-sources/${selectedSource}/stream`
+        `${protocol}//${window.location.host}/api/v1/camera-sources/${activeSelectedSource}/stream`
 
       const socket = new WebSocket(socketUrl)
       socket.binaryType = 'arraybuffer'
@@ -377,7 +379,7 @@ function LiveMonitoring() {
             </div>
           </div>
 
-          <div className="camera-preview" ref={previewRef}>
+          <div className="camera-preview" ref={setPreviewElement}>
             {stream ? (
               <video
                 ref={videoRef}
@@ -402,9 +404,9 @@ function LiveMonitoring() {
           <canvas ref={canvasRef} className="live-hidden-canvas" />
           <TableZoneEditor
             videoRef={videoRef}
-            previewRef={previewRef}
+            previewElement={previewElement}
             tables={tables}
-            cameraSourceId={selectedSource ? Number(selectedSource) : null}
+            cameraSourceId={activeSelectedSource ? Number(activeSelectedSource) : null}
             cameraActive={stream !== null && connection === 'connected'}
           />
 
@@ -412,7 +414,7 @@ function LiveMonitoring() {
             <label className="live-field">
               <span>Registered camera source</span>
               <select
-                value={selectedSource}
+                value={activeSelectedSource}
                 onChange={(event) => setSelectedSource(event.target.value)}
                 disabled={connection === 'connected' || connection === 'connecting'}
               >
@@ -449,7 +451,7 @@ function LiveMonitoring() {
               <button
                 className="live-start-button"
                 onClick={() => void startCamera()}
-                disabled={!selectedSource || camerasLoading}
+                disabled={!activeSelectedSource || camerasLoading}
               >
                 <Camera size={15} />
                 Start camera
