@@ -323,7 +323,7 @@ function TableZoneEditor({
 
         <div className="zone-editor-hint">
           {!cameraActive
-            ? 'Start the live camera before drawing table zones.'
+            ? 'Load a live camera or video preview before drawing table zones.'
             : drawing
               ? 'Click at least three points around the table. Finish drawing when ready.'
               : 'The green outline shows the selected table zone. You can redraw it at any time.'}
