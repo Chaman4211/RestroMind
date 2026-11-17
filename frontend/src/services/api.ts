@@ -13,6 +13,18 @@ export type RestaurantTable = {
   created_at: string
 }
 
+export type RestaurantAlert = {
+  id: number
+  table_id: number
+  table_number: string
+  table_name: string
+  alert_type: string
+  message: string
+  status: 'OPEN' | 'RESOLVED'
+  created_at: string
+  resolved_at: string | null
+}
+
 export type CameraSource = {
   id: number
   name: string
@@ -52,6 +64,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export function getRestaurantTables(): Promise<RestaurantTable[]> {
   return request<RestaurantTable[]>('/restaurant-tables')
+}
+
+export function getAlerts(
+  status: 'OPEN' | 'RESOLVED' = 'OPEN',
+): Promise<RestaurantAlert[]> {
+  return request<RestaurantAlert[]>(`/alerts?status=${status}`)
 }
 
 export function getCameraSources(): Promise<CameraSource[]> {

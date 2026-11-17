@@ -471,3 +471,38 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+
+.camera-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.camera-mirror-toggle {
+  padding: 7px 11px;
+  border: 1px solid #dce5dc;
+  border-radius: 7px;
+  background: #f7f9f6;
+  color: #647368;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.camera-mirror-toggle:hover {
+  border-color: #9aaf9d;
+  background: #edf3ed;
+}
+
+.camera-mirror-toggle.active {
+  border-color: #8caf91;
+  background: #eaf4eb;
+  color: #397348;
+}
+
+.camera-preview video.mirrored {
+  transform: scaleX(-1);
+}

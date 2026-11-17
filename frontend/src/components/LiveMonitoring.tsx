@@ -40,7 +40,7 @@ type FrameResult = {
 
 function LiveMonitoring() {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const previewRef = useRef<HTMLDivElement>(null)
+  const [previewElement, setPreviewElement] = useState<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const socketRef = useRef<WebSocket | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -55,6 +55,7 @@ function LiveMonitoring() {
   const [message, setMessage] = useState('')
   const [latestResult, setLatestResult] = useState<FrameResult | null>(null)
   const [lastFrameTime, setLastFrameTime] = useState('')
+  const [mirrorCamera, setMirrorCamera] = useState(false)
 
   const {
     data: cameraSources = [],
@@ -82,11 +83,13 @@ function LiveMonitoring() {
       table.zone_coordinates !== null && table.camera_source_id !== null,
   )
 
-  useEffect(() => {
-    if (!selectedSource && liveSources.length > 0) {
-      setSelectedSource(String(liveSources[0].id))
-    }
-  }, [liveSources, selectedSource])
+  const activeSelectedSource = liveSources.some(
+    (source) => String(source.id) === selectedSource,
+  )
+    ? selectedSource
+    : liveSources.length > 0
+      ? String(liveSources[0].id)
+      : ''
 
   useEffect(() => {
     let mounted = true
@@ -169,7 +172,7 @@ function LiveMonitoring() {
     setMessage('')
     setLatestResult(null)
 
-    if (!selectedSource) {
+    if (!activeSelectedSource) {
       setMessage('Please select an active LIVE camera source first.')
       return
     }
@@ -210,7 +213,7 @@ function LiveMonitoring() {
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const socketUrl =
-        `${protocol}//${window.location.host}/api/v1/camera-sources/${selectedSource}/stream`
+        `${protocol}//${window.location.host}/api/v1/camera-sources/${activeSelectedSource}/stream`
 
       const socket = new WebSocket(socketUrl)
       socket.binaryType = 'arraybuffer'
@@ -241,7 +244,16 @@ function LiveMonitoring() {
           const context = canvas.getContext('2d')
           if (!context) return
 
+          context.setTransform(
+            mirrorCamera ? -1 : 1,
+            0,
+            0,
+            1,
+            mirrorCamera ? canvas.width : 0,
+            0,
+          )
           context.drawImage(video, 0, 0, canvas.width, canvas.height)
+          context.setTransform(1, 0, 0, 1, 0, 0)
           awaitingFrameRef.current = true
 
           canvas.toBlob(
@@ -332,11 +344,12 @@ function LiveMonitoring() {
           </p>
         </div>
         <div className={`live-status ${connection}`}>
-          {connection === 'connected' ? <Wifi size={14} /> : <WifiOff size={14} />}
-          {connectionLabel[connection]}
-        </div>
+            {connection === 'connected' ? <Wifi size={14} /> : <WifiOff size={14} />}
+            {connectionLabel[connection]}
+          </div>
       </div>
 
+      <>
       {message && (
         <div className="live-message" role="status">
           <AlertCircle size={16} />
@@ -353,12 +366,28 @@ function LiveMonitoring() {
                 Browser camera frames are processed locally by the RestroMind backend.
               </div>
             </div>
-            <MonitorPlay size={18} color="#78917d" />
+            <div className="camera-preview-actions">
+              <button
+                type="button"
+                className={`camera-mirror-toggle ${mirrorCamera ? 'active' : ''}`}
+                aria-pressed={mirrorCamera}
+                onClick={() => setMirrorCamera((current) => !current)}
+              >
+                {mirrorCamera ? 'Mirror on' : 'Mirror off'}
+              </button>
+              <MonitorPlay size={18} color="#78917d" />
+            </div>
           </div>
 
-          <div className="camera-preview" ref={previewRef}>
+          <div className="camera-preview" ref={setPreviewElement}>
             {stream ? (
-              <video ref={videoRef} autoPlay playsInline muted />
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className={mirrorCamera ? 'mirrored' : ''}
+              />
             ) : (
               <div className="camera-placeholder">
                 <div className="camera-placeholder-icon"><Camera size={28} /></div>
@@ -375,9 +404,9 @@ function LiveMonitoring() {
           <canvas ref={canvasRef} className="live-hidden-canvas" />
           <TableZoneEditor
             videoRef={videoRef}
-            previewRef={previewRef}
+            previewElement={previewElement}
             tables={tables}
-            cameraSourceId={selectedSource ? Number(selectedSource) : null}
+            cameraSourceId={activeSelectedSource ? Number(activeSelectedSource) : null}
             cameraActive={stream !== null && connection === 'connected'}
           />
 
@@ -385,7 +414,7 @@ function LiveMonitoring() {
             <label className="live-field">
               <span>Registered camera source</span>
               <select
-                value={selectedSource}
+                value={activeSelectedSource}
                 onChange={(event) => setSelectedSource(event.target.value)}
                 disabled={connection === 'connected' || connection === 'connecting'}
               >
@@ -422,7 +451,7 @@ function LiveMonitoring() {
               <button
                 className="live-start-button"
                 onClick={() => void startCamera()}
-                disabled={!selectedSource || camerasLoading}
+                disabled={!activeSelectedSource || camerasLoading}
               >
                 <Camera size={15} />
                 Start camera
@@ -543,6 +572,7 @@ function LiveMonitoring() {
         <Wifi size={14} />
         Frame processing runs one frame at a time to avoid overloading the local CPU.
       </div>
+      </>
     </div>
   )
 }

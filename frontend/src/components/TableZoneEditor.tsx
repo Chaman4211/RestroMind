@@ -16,7 +16,7 @@ type Point = {
 
 type Props = {
   videoRef: RefObject<HTMLVideoElement | null>
-  previewRef: RefObject<HTMLDivElement | null>
+  previewElement: HTMLDivElement | null
   tables: RestaurantTable[]
   cameraSourceId: number | null
   cameraActive: boolean
@@ -48,7 +48,7 @@ function readZonePoints(zone: unknown): Point[] {
 
 function TableZoneEditor({
   videoRef,
-  previewRef,
+  previewElement,
   tables,
   cameraSourceId,
   cameraActive,
@@ -70,24 +70,25 @@ function TableZoneEditor({
     [tables, cameraSourceId],
   )
 
-  const selectedTable = availableTables.find(
+  const effectiveSelectedTableId = availableTables.some(
     (table) => String(table.id) === selectedTableId,
+  )
+    ? selectedTableId
+    : availableTables.length > 0
+      ? String(availableTables[0].id)
+      : ''
+
+  const selectedTable = availableTables.find(
+    (table) => String(table.id) === effectiveSelectedTableId,
   )
 
   useEffect(() => {
-    if (
-      !selectedTableId ||
-      !availableTables.some((table) => String(table.id) === selectedTableId)
-    ) {
-      setSelectedTableId(
-        availableTables.length > 0 ? String(availableTables[0].id) : '',
-      )
-    }
-  }, [availableTables, selectedTableId])
-
-  useEffect(() => {
+    // Load the saved zone when the selected table changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPoints(readZonePoints(selectedTable?.zone_coordinates))
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDrawing(false)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessage('')
   }, [selectedTable?.id, selectedTable?.zone_coordinates])
 
@@ -182,52 +183,53 @@ function TableZoneEditor({
     setMessage('Click around the table to mark its boundary. Add at least three points.')
   }
 
-  const overlay = previewRef.current && cameraActive
-    ? createPortal(
-        <svg
-          className={`zone-overlay ${drawing ? 'drawing' : ''}`}
-          viewBox={`0 0 ${videoSize.width} ${videoSize.height}`}
-          preserveAspectRatio="xMidYMid meet"
-          onClick={handleOverlayClick}
-          aria-label="Table zone drawing overlay"
-        >
-          {points.length >= 3 && (
-            <polygon
-              points={points
-                .map(
-                  (point) =>
-                    `${point.x * videoSize.width},${point.y * videoSize.height}`,
-                )
-                .join(' ')}
-              className="zone-polygon"
-            />
-          )}
+  const overlay =
+    previewElement && cameraActive
+      ? createPortal(
+          <svg
+            className={`zone-overlay ${drawing ? 'drawing' : ''}`}
+            viewBox={`0 0 ${videoSize.width} ${videoSize.height}`}
+            preserveAspectRatio="xMidYMid meet"
+            onClick={handleOverlayClick}
+            aria-label="Table zone drawing overlay"
+          >
+            {points.length >= 3 && (
+              <polygon
+                points={points
+                  .map(
+                    (point) =>
+                      `${point.x * videoSize.width},${point.y * videoSize.height}`,
+                  )
+                  .join(' ')}
+                className="zone-polygon"
+              />
+            )}
 
-          {points.length > 0 && (
-            <polyline
-              points={points
-                .map(
-                  (point) =>
-                    `${point.x * videoSize.width},${point.y * videoSize.height}`,
-                )
-                .join(' ')}
-              className="zone-line"
-            />
-          )}
+            {points.length > 0 && (
+              <polyline
+                points={points
+                  .map(
+                    (point) =>
+                      `${point.x * videoSize.width},${point.y * videoSize.height}`,
+                  )
+                  .join(' ')}
+                className="zone-line"
+              />
+            )}
 
-          {points.map((point, index) => (
-            <circle
-              key={`${index}-${point.x}-${point.y}`}
-              cx={point.x * videoSize.width}
-              cy={point.y * videoSize.height}
-              r={Math.max(5, videoSize.width / 150)}
-              className="zone-point"
-            />
-          ))}
-        </svg>,
-        previewRef.current,
-      )
-    : null
+            {points.map((point, index) => (
+              <circle
+                key={`${index}-${point.x}-${point.y}`}
+                cx={point.x * videoSize.width}
+                cy={point.y * videoSize.height}
+                r={Math.max(5, videoSize.width / 150)}
+                className="zone-point"
+              />
+            ))}
+          </svg>,
+          previewElement,
+        )
+      : null
 
   return (
     <>
@@ -247,7 +249,7 @@ function TableZoneEditor({
         <label className="zone-editor-field">
           <span>Restaurant table</span>
           <select
-            value={selectedTableId}
+            value={effectiveSelectedTableId}
             onChange={(event) => setSelectedTableId(event.target.value)}
             disabled={drawing || saveMutation.isPending}
           >
@@ -323,7 +325,7 @@ function TableZoneEditor({
 
         <div className="zone-editor-hint">
           {!cameraActive
-            ? 'Start the live camera before drawing table zones.'
+            ? 'Load a live camera or video preview before drawing table zones.'
             : drawing
               ? 'Click at least three points around the table. Finish drawing when ready.'
               : 'The green outline shows the selected table zone. You can redraw it at any time.'}

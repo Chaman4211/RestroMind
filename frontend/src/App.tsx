@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   confirmTableCleaning,
+  getAlerts,
   getRestaurantTables,
+  type RestaurantAlert,
   type RestaurantTable as ApiRestaurantTable,
 } from './services/api'
 import {
@@ -74,6 +76,21 @@ const statusLabels: Record<TableStatus, string> = {
   cleaning: 'Needs cleaning',
 }
 
+function formatAlertTime(value: string): string {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Recently'
+  }
+
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
 function App() {
   const [activeNav, setActiveNav] = useState('Overview')
   const [filter, setFilter] = useState<'all' | TableStatus>('all')
@@ -92,6 +109,17 @@ function App() {
     queryFn: getRestaurantTables,
   })
 
+  const {
+    data: openAlerts = [],
+    isLoading: alertsLoading,
+    isError: alertsError,
+    error: alertsQueryError,
+  } = useQuery({
+    queryKey: ['alerts', 'OPEN'],
+    queryFn: () => getAlerts('OPEN'),
+    refetchInterval: 10000,
+  })
+
   const showNotice = (message: string) => {
     setNotice(message)
     window.setTimeout(() => setNotice(''), 3000)
@@ -100,7 +128,10 @@ function App() {
   const cleaningMutation = useMutation({
     mutationFn: confirmTableCleaning,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['restaurant-tables'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['restaurant-tables'] }),
+        queryClient.invalidateQueries({ queryKey: ['alerts'] }),
+      ])
       showNotice('Cleaning confirmation saved.')
     },
     onError: (mutationError) => {
@@ -199,8 +230,17 @@ function App() {
           </div>
           <div className="topbar-actions">
             <div className="date-chip"><CalendarDays size={14} /> Friday, November 13</div>
-            <button className="icon-button" aria-label="Notifications" onClick={() => showNotice('You have 2 cleaning alerts.')}>
-              <Bell size={16} /><span className="notification-dot" />
+            <button
+              className="icon-button"
+              aria-label={`Notifications, ${openAlerts.length} open alerts`}
+              onClick={() => showNotice(
+                openAlerts.length === 0
+                  ? 'You have no open alerts.'
+                  : `You have ${openAlerts.length} open alert${openAlerts.length === 1 ? '' : 's'}.`,
+              )}
+            >
+              <Bell size={16} />
+              {openAlerts.length > 0 && <span className="notification-dot" />}
             </button>
           </div>
         </header>
@@ -374,36 +414,60 @@ function App() {
                     <div className="panel-title">Needs attention</div>
                     <div className="panel-caption">Tasks waiting for your team</div>
                   </div>
-                  <span style={{ background: '#fbf0df', color: '#a8752e', borderRadius: 20, padding: '4px 8px', fontSize: 9, fontWeight: 700 }}>{cleaningCount} open</span>
+                  <span style={{ background: '#fbf0df', color: '#a8752e', borderRadius: 20, padding: '4px 8px', fontSize: 9, fontWeight: 700 }}>{openAlerts.length} open</span>
                 </div>
                 <div className="alert-list">
-                  {cleaningTables.length === 0 ? (
+                  {alertsLoading ? (
+                    <div className="alert-item">
+                      <div className="alert-copy">
+                        <p>Loading alerts...</p>
+                      </div>
+                    </div>
+                  ) : alertsError ? (
+                    <div className="alert-item">
+                      <div className="alert-symbol"><AlertCircle size={15} /></div>
+                      <div className="alert-copy">
+                        <strong>Could not load alerts</strong>
+                        <p>{alertsQueryError instanceof Error ? alertsQueryError.message : 'Please try again.'}</p>
+                      </div>
+                    </div>
+                  ) : openAlerts.length === 0 ? (
                     <div className="alert-item">
                       <div className="alert-symbol"><CheckCircle2 size={15} /></div>
                       <div className="alert-copy">
                         <strong>All tables are up to date</strong>
-                        <p>No cleaning tasks are waiting.</p>
+                        <p>No open alerts are waiting.</p>
                       </div>
                     </div>
                   ) : (
-                    cleaningTables.map((table) => (
-                      <AlertItem
-                        key={table.id}
-                        icon={<Coffee size={15} />}
-                        title={`${table.tableNumber} needs cleaning`}
-                        description={table.name}
-                        time="Awaiting staff"
-                        action={
-                          <button
-                            className="text-action"
-                            disabled={cleaningMutation.isPending}
-                            onClick={() => cleaningMutation.mutate(table.id)}
-                          >
-                            {cleaningMutation.isPending ? 'Saving...' : 'Confirm cleaned'}
-                          </button>
-                        }
-                      />
-                    ))
+                    openAlerts.map((alert: RestaurantAlert) => {
+                      const isCleaningAlert = alert.alert_type === 'CLEANING_REQUIRED'
+
+                      return (
+                        <AlertItem
+                          key={alert.id}
+                          icon={isCleaningAlert ? <Coffee size={15} /> : <AlertCircle size={15} />}
+                          title={
+                            isCleaningAlert
+                              ? `${alert.table_number} needs cleaning`
+                              : `${alert.table_number} · ${alert.alert_type.replace(/_/g, ' ').toLowerCase()}`
+                          }
+                          description={`${alert.table_name} · ${alert.message}`}
+                          time={formatAlertTime(alert.created_at)}
+                          action={
+                            isCleaningAlert ? (
+                              <button
+                                className="text-action"
+                                disabled={cleaningMutation.isPending}
+                                onClick={() => cleaningMutation.mutate(alert.table_id)}
+                              >
+                                {cleaningMutation.isPending ? 'Saving...' : 'Confirm cleaned'}
+                              </button>
+                            ) : undefined
+                          }
+                        />
+                      )
+                    })
                   )}
                 </div>
                 <div className="alert-footer">
