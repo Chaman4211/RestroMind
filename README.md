@@ -1,101 +1,118 @@
 # RestroMind
 
-**AI-Powered Restaurant Table Monitoring System**
+**AI-Powered Restaurant Table Monitoring and Management System**
 
 ## Overview
 
-RestroMind is a computer-vision-based restaurant monitoring prototype. It detects and tracks people from a camera or uploaded video, estimates table occupancy using manually configured table zones, and helps staff manage table cleaning after customers leave.
+RestroMind is a computer-vision-based restaurant monitoring system. It detects and tracks people from camera streams or uploaded videos, estimates table occupancy using manually configured table zones, and helps restaurant staff manage cleaning tasks.
 
-The current MVP connects live camera monitoring, table status updates, cleaning alerts, and staff cleaning confirmation through a web dashboard.
+The current MVP combines camera monitoring, table status updates, cleaning alerts, staff management, and a web dashboard.
 
 ## Features
 
+### Camera Monitoring
+- Browser-camera live monitoring through WebSockets.
+- RTSP and RTSPS IP camera sources.
+- Start, stop, and check RTSP stream status.
+- Uploaded-video processing.
+- Camera source creation and management.
+
+### Computer Vision
 - Person detection using pretrained YOLO11n.
 - Person tracking using ByteTrack.
-- Live browser-camera monitoring through WebSockets.
-- Uploaded-video processing.
+- Video processing with OpenCV.
 - Manual polygon-based table-zone configuration.
-- Multiple table zones monitored independently from one camera.
-- Table occupancy monitoring with FREE, OCCUPIED, and NEEDS_CLEANING states.
-- Customer-departure detection and automatic cleaning alerts.
-- Dashboard display of open cleaning alerts.
-- Staff cleaning confirmation; confirmed tables return to FREE.
+- Occupancy estimation using detected person positions within configured zones.
+
+### Table and Cleaning Management
+- Create, view, update, and delete restaurant tables.
+- FREE, OCCUPIED, and NEEDS_CLEANING table states.
 - Occupancy event recording.
-- PostgreSQL database integration.
-- React operations dashboard.
+- Automatic cleaning alerts when an occupied table becomes vacant.
+- Cleaning task assignment to cleaning staff.
+- Staff confirmation of completed cleaning.
+
+### Authentication and Staff
+- Initial owner account setup.
+- Login using email and password.
+- JWT access tokens and current-user endpoint.
+- Password hashing and verification.
+- Staff records, roles, and activation status.
+- Role checks for protected table and alert operations.
 
 ## Technology Stack
 
-### Frontend
-- React, TypeScript, Vite, Tailwind CSS, TanStack Query, React Router, Lucide React, Recharts.
-
-### Backend
-- Python, FastAPI, Pydantic, SQLAlchemy, Alembic.
-
-### Computer Vision
-- Ultralytics YOLO11n, ByteTrack, OpenCV.
-
-### Database and Testing
-- PostgreSQL, Docker Compose, Pytest, HTTPX, pytest-cov, Ruff, Oxlint.
+| Area | Technologies |
+|---|---|
+| Frontend | React, TypeScript, Vite |
+| UI and Data | Tailwind CSS, TanStack Query, React Router, Lucide React, Recharts |
+| Backend | Python 3.11, FastAPI, Pydantic |
+| Computer Vision | Ultralytics YOLO11n, ByteTrack, OpenCV |
+| Database | PostgreSQL, SQLAlchemy |
+| Migrations | Alembic |
+| Authentication | JWT, password hashing |
+| Testing | Pytest, HTTPX |
+| Code Quality | Ruff, Oxlint, TypeScript |
+| Infrastructure | Docker Compose |
 
 ## Table Monitoring Workflow
 
-1. Select a camera source and start live monitoring.
-2. Draw and save a polygon zone for each table in the camera preview.
-3. The vision pipeline detects and tracks people.
-4. A person's position is matched against the configured table zones.
-5. The occupancy service updates each table's status.
-6. When a customer leaves an occupied table, the table changes to NEEDS_CLEANING and a cleaning alert is created.
-7. Staff clean the table and confirm the action in the dashboard.
-8. The table returns to FREE and its cleaning alert is resolved.
+1. Select a browser camera, RTSP camera, or uploaded video.
+2. Configure a polygon zone for each restaurant table.
+3. The vision pipeline detects and tracks people in video frames.
+4. Detected person positions are checked against the configured table zones.
+5. The occupancy service updates the table state.
+6. When a previously occupied table becomes vacant, it can be marked as NEEDS_CLEANING and a cleaning alert is created.
+7. A manager can assign the cleaning task to a cleaning staff member.
+8. Staff clean the table and confirm completion through the application.
+9. The table returns to FREE.
 
 ### Table statuses
 
 | Status | Description |
 |---|---|
-| FREE | Table is available. |
-| OCCUPIED | A person has been detected inside the configured table zone for the required duration. |
+| FREE | The table is available. |
+| OCCUPIED | A person is detected inside the configured table zone for the required duration. |
 | NEEDS_CLEANING | A previously occupied table has become vacant and requires cleaning confirmation. |
 
-## System Architecture
+## Architecture
 
 ```text
-Browser Camera / Uploaded Video
-              |
-              v
-         React Frontend
-              |
-       REST API / WebSocket
-              |
-              v
-          FastAPI API
-              |
-              v
-      Computer Vision Pipeline
-              |
-       YOLO11n Detection
-              |
-        ByteTrack Tracking
-              |
-              v
-        Table Zone Matching
-              |
-              v
-      Occupancy State Machine
-              |
-        Table Status / Events
-              |
-              v
-          PostgreSQL
-              |
-              v
-       Dashboard and Alerts
+Browser Camera / RTSP Camera / Uploaded Video
+                     |
+                     v
+                React Frontend
+                     |
+              REST API / WebSocket
+                     |
+                     v
+                  FastAPI
+                     |
+             Video Processing
+                     |
+              YOLO11n Detection
+                     |
+               ByteTrack Tracking
+                     |
+                     v
+              Table Zone Matching
+                     |
+                     v
+            Occupancy State Machine
+                     |
+              Table Status / Events
+                     |
+                     v
+                 PostgreSQL
+                     |
+                     v
+          Dashboard / Cleaning Alerts
 ```
 
 ## Project Structure
 
 ```text
-restromind/
+RestroMind/
 ├── backend/
 │   ├── app/
 │   ├── alembic/
@@ -118,28 +135,57 @@ restromind/
 
 ### Requirements
 
-- Python 3.11
-- Node.js and npm
-- Docker Compose
-- Git
+- Ubuntu or another supported operating system.
+- Python 3.11.
+- Node.js and npm.
+- Docker and Docker Compose.
+- Git.
 
-### 1. Clone and configure the environment
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/Chaman4211/RestroMind.git
 cd RestroMind
+```
+
+### 2. Configure environment variables
+
+Copy the example file:
+
+```bash
 cp .env.example .env
 ```
 
-Set the PostgreSQL credentials and other required values in `.env`. Do not commit this file.
+The backend requires PostgreSQL credentials and a JWT secret. Owner setup and RTSP URL encryption use additional optional settings that should be configured when those features are used.
 
-### 2. Start PostgreSQL
+Generate secure values:
+
+```bash
+openssl rand -hex 32
+openssl rand -hex 32
+```
+
+Add the generated values to `.env` as `JWT_SECRET_KEY` and `OWNER_SETUP_KEY`. Set `RTSP_ENCRYPTION_KEY` as well when using RTSP camera sources, following the encryption implementation's required key format.
+
+Keep `.env` private. Do not commit passwords, camera URLs, or secret keys.
+
+### 3. Start PostgreSQL
+
+Run this command from the project root:
 
 ```bash
 docker compose --env-file .env -f infrastructure/docker-compose.yml up -d
 ```
 
-### 3. Set up and start the backend
+Check the database container:
+
+```bash
+docker compose --env-file .env -f infrastructure/docker-compose.yml ps
+```
+
+### 4. Set up the backend
+
+Open a terminal and run:
 
 ```bash
 cd backend
@@ -154,64 +200,109 @@ Backend: http://127.0.0.1:8000
 
 API documentation: http://127.0.0.1:8000/docs
 
-### 4. Set up and start the frontend
+Health endpoint: http://127.0.0.1:8000/api/v1/health
 
-Open another terminal:
+### 5. Set up the frontend
+
+Open a second terminal:
 
 ```bash
-cd RestroMind/frontend
+cd ~/projects/restromind/frontend
 npm install
 npm run dev
 ```
 
-The frontend normally runs at http://localhost:5173. If both local RestroMind HTTPS certificate files are available under `~/.config/restromind/certs/`, Vite uses HTTPS; otherwise it starts without local HTTPS certificates.
+Frontend: http://localhost:5173
 
-## Testing
+If the local RestroMind HTTPS certificate files are available under `~/.config/restromind/certs/`, Vite can use HTTPS. Otherwise, it starts without local HTTPS certificates.
 
-Run backend tests from the `backend` directory:
+## Camera Setup
+
+### Browser camera
+Open the live monitoring page and allow the browser to access the selected camera.
+
+### RTSP/IP camera
+1. Add a camera source with type RTSP.
+2. Provide a valid RTSP or RTSPS address.
+3. Configure `RTSP_ENCRYPTION_KEY` in the backend environment.
+4. Start the RTSP stream using the camera controls.
+5. Check the stream status in the application.
+
+RTSP operation depends on network access, camera credentials, stream compatibility, and camera configuration. Do not expose camera credentials in screenshots, logs, or public repositories.
+
+### Uploaded video
+Select a supported video file through the video-processing workflow.
+
+## API Overview
+
+The API uses the `/api/v1` prefix.
+
+| Module | Main routes |
+|---|---|
+| Health | `GET /health` |
+| Authentication | `POST /auth/setup-owner`, `POST /auth/login`, `GET /auth/me` |
+| Staff | `/staff` |
+| Camera sources | `/camera-sources` |
+| RTSP controls | `/camera-sources/{id}/rtsp/start`, `/stop`, `/status` |
+| Video processing | `/camera-sources/{id}/process-video` |
+| Restaurant tables | `/restaurant-tables` |
+| Cleaning confirmation | `POST /restaurant-tables/{id}/confirm-cleaning` |
+| Alerts | `/alerts` |
+
+Open http://127.0.0.1:8000/docs for endpoint parameters, request schemas, and response details.
+
+## Testing and Code Quality
+
+Run backend tests from the project root:
 
 ```bash
-python -m pytest
-python -m ruff check app tests
+cd backend
+.venv/bin/python -m pytest
 ```
 
-Run frontend checks from the `frontend` directory:
+Run backend lint checks:
 
 ```bash
+.venv/bin/python -m ruff check app tests
+```
+
+Run frontend lint and production build:
+
+```bash
+cd ~/projects/restromind/frontend
 npm run lint
 npm run build
 ```
 
-The live monitoring and cleaning-alert implementation passed the backend test suite (67 tests), frontend lint, and frontend production build in CI at the time of its merge.
+Latest project validation reported 83 passing backend tests, clean Ruff checks, zero Oxlint warnings and errors, successful TypeScript compilation, and a successful Vite production build.
 
 ## Current Scope and Limitations
 
 - Table zones are configured manually using polygon drawing.
-- Occupancy is estimated using detected person positions inside configured zones.
-- YOLO11n is used for person detection; automatic restaurant-table recognition is not implemented.
-- Multiple zones can be monitored independently from one camera. Validation has focused on sequential occupancy scenarios; simultaneous multi-person accuracy has not been established.
-- Detection quality depends on camera angle, lighting, occlusion, camera placement, and video quality.
-- The current prototype has been tested with a laptop camera. Real restaurant CCTV integration still requires deployment and compatibility testing with the target camera system.
-- Staff authentication and role-based access control are not yet implemented.
-- Cleaning alerts support the table-cleaning workflow; tissue/spoon requests and advanced hygiene monitoring are outside the current MVP scope.
+- Occupancy is estimated from detected person positions; it is not a direct measurement of customer identity or intent.
+- YOLO11n is used for person detection. Automatic restaurant-table recognition is not implemented.
+- Detection quality depends on camera angle, lighting, occlusion, placement, and video quality.
+- RTSP support is implemented, but compatibility and reliability still need validation with different real restaurant CCTV systems.
+- Multi-person and multi-table accuracy needs further real-world testing.
+- The current MVP focuses on table occupancy and cleaning workflows.
+- Tissue/spoon requests, advanced hygiene monitoring, inventory intelligence, and POS integration are outside the current MVP scope.
 
 ## Development Workflow
 
-1. Create a GitHub issue.
+1. Create or select a GitHub issue.
 2. Create a feature branch from `main`.
-3. Implement and test changes.
-4. Push the feature branch.
-5. Open a Pull Request.
-6. Review changes and automated checks.
-7. Merge the approved PR into `main`.
+3. Implement the change.
+4. Run the relevant backend and frontend checks.
+5. Push the feature branch.
+6. Open a Pull Request for review.
+7. Merge the approved changes into `main`.
 
-## Contributors
+## Contributor
 
 - Chaman Afzaal
-- Muhammad Abbas
 
 ## Project Status
 
-**Core live table-monitoring and cleaning-alert MVP implemented.**
+**Core restaurant table-monitoring MVP implemented.**
 
-The current implementation supports live camera monitoring, manually configured table zones, occupancy status updates, automatic cleaning alerts, and staff cleaning confirmation. Further work can focus on testing with real restaurant CCTV footage, improving detection reliability, and adding additional restaurant operations features.
+The current implementation includes browser-camera monitoring, RTSP/IP camera support, uploaded-video processing, table occupancy monitoring, cleaning alerts, staff management, and authentication. Further work includes validation with real restaurant CCTV systems and improving detection reliability.

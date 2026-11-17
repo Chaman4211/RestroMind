@@ -3,11 +3,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user, require_roles
 from app.db.session import get_db
 from app.models.alert import Alert
 from app.models.camera_source import CameraSource
 from app.models.occupancy_event import OccupancyEvent
 from app.models.restaurant_table import RestaurantTable
+from app.models.staff_user import StaffUser
 from app.schemas.restaurant_table import (
     RestaurantTableCreate,
     RestaurantTableResponse,
@@ -17,6 +19,21 @@ from app.services.occupancy.runtime import occupancy_service
 
 router = APIRouter(prefix="/restaurant-tables", tags=["Restaurant Tables"])
 
+MANAGEMENT_ROLES = (
+    "OWNER",
+    "MANAGER",
+    "ASSISTANT_MANAGER",
+    "SUPERVISOR",
+)
+
+TABLE_MANAGEMENT_ROLES = (
+    "OWNER",
+    "MANAGER",
+    "ASSISTANT_MANAGER",
+)
+
+MANAGEMENT_USER = require_roles(*MANAGEMENT_ROLES)
+TABLE_MANAGEMENT_USER = require_roles(*TABLE_MANAGEMENT_ROLES)
 
 
 def validate_camera_source(db: Session, camera_source_id: int | None):
@@ -46,6 +63,7 @@ def validate_camera_source(db: Session, camera_source_id: int | None):
 def create_restaurant_table(
     payload: RestaurantTableCreate,
     db: Session = Depends(get_db),
+    current_user: StaffUser = Depends(TABLE_MANAGEMENT_USER),
 ):
     validate_camera_source(db, payload.camera_source_id)
 
@@ -78,7 +96,10 @@ def create_restaurant_table(
 
 
 @router.get("", response_model=list[RestaurantTableResponse])
-def list_restaurant_tables(db: Session = Depends(get_db)):
+def list_restaurant_tables(
+    db: Session = Depends(get_db),
+    current_user: StaffUser = Depends(MANAGEMENT_USER),
+):
     statement = select(RestaurantTable).order_by(RestaurantTable.id)
     return db.scalars(statement).all()
 
@@ -87,6 +108,7 @@ def list_restaurant_tables(db: Session = Depends(get_db)):
 def get_restaurant_table(
     table_id: int,
     db: Session = Depends(get_db),
+    current_user: StaffUser = Depends(MANAGEMENT_USER),
 ):
     restaurant_table = db.get(RestaurantTable, table_id)
 
@@ -104,6 +126,7 @@ def update_restaurant_table(
     table_id: int,
     payload: RestaurantTableUpdate,
     db: Session = Depends(get_db),
+    current_user: StaffUser = Depends(MANAGEMENT_USER),
 ):
     restaurant_table = db.get(RestaurantTable, table_id)
 
@@ -138,6 +161,7 @@ def update_restaurant_table(
 def delete_restaurant_table(
     table_id: int,
     db: Session = Depends(get_db),
+    current_user: StaffUser = Depends(TABLE_MANAGEMENT_USER),
 ):
     restaurant_table = db.get(RestaurantTable, table_id)
 
@@ -171,11 +195,39 @@ def delete_restaurant_table(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/{table_id}/confirm-cleaning", response_model=RestaurantTableResponse)
+@router.post(
+    "/{table_id}/confirm-cleaning",
+    response_model=RestaurantTableResponse,
+)
 def confirm_table_cleaning(
     table_id: int,
     db: Session = Depends(get_db),
+    current_user: StaffUser = Depends(get_current_user),
 ):
+    if current_user.role not in (*MANAGEMENT_ROLES, "CLEANING_STAFF"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to confirm table cleaning",
+        )
+
+    if current_user.role == "CLEANING_STAFF":
+        open_alerts = db.scalars(
+            select(Alert).where(
+                Alert.table_id == table_id,
+                Alert.alert_type == "CLEANING_REQUIRED",
+                Alert.status == "OPEN",
+            )
+        ).all()
+
+        if not open_alerts or any(
+            alert.assigned_staff_id != current_user.id
+            for alert in open_alerts
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only confirm cleaning tasks assigned to you",
+            )
+
     try:
         occupancy_service.confirm_cleaning(db, table_id)
     except ValueError as error:

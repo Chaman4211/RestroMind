@@ -506,3 +506,29 @@
 .camera-preview video.mirrored {
   transform: scaleX(-1);
 }
+
+.monitoring-mode-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 17px;
+}
+
+.monitoring-mode-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 13px;
+  border: 1px solid #e2e9e1;
+  border-radius: 7px;
+  background: #fff;
+  color: #68786b;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.monitoring-mode-tabs button.active {
+  border-color: #9bb69e;
+  background: #edf4ec;
+  color: #315b40;
+}
