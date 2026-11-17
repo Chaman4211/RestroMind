@@ -1,6 +1,7 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status as http_status
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi import status as http_status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -19,6 +20,8 @@ MANAGEMENT_ROLES = (
     "ASSISTANT_MANAGER",
     "SUPERVISOR",
 )
+
+MANAGEMENT_USER = require_roles(*MANAGEMENT_ROLES)
 
 
 def alert_response_query():
@@ -86,7 +89,7 @@ def list_alerts(
 def update_alert_assignment(
     alert_id: int,
     payload: AlertAssignmentUpdate,
-    current_user: StaffUser = Depends(require_roles(*MANAGEMENT_ROLES)),
+    current_user: StaffUser = Depends(MANAGEMENT_USER),
     db: Session = Depends(get_db),
 ):
     alert = db.get(Alert, alert_id)
@@ -120,7 +123,7 @@ def update_alert_assignment(
 
         if staff_member.role != "CLEANING_STAFF":
             raise HTTPException(
-                status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=http_status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Cleaning tasks can only be assigned to cleaning staff",
             )
 

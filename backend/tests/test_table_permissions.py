@@ -98,7 +98,6 @@ def test_cleaner_can_confirm_own_assigned_cleaning_task():
         db.add(alert)
         db.commit()
         db.refresh(alert)
-        alert_id = alert.id
 
         response = client.post(
             f"/api/v1/restaurant-tables/{table_id}/confirm-cleaning",

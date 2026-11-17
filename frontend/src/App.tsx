@@ -38,7 +38,7 @@ import LiveMonitoring from './components/LiveMonitoring'
 import TableManagement from './components/TableManagement'
 import CleaningTasks from './components/CleaningTasks'
 import Staff from './components/Staff'
-import { useAuth } from './components/AuthGate'
+import { useAuth } from './components/authContext'
 import './App.css'
 
 type TableStatus = 'free' | 'occupied' | 'cleaning'

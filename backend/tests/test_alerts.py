@@ -3,10 +3,10 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from app.db.session import SessionLocal
-from tests.auth_helpers import create_test_user, delete_test_user
 from app.main import app
 from app.models.alert import Alert
 from app.models.restaurant_table import RestaurantTable
+from tests.auth_helpers import create_test_user, delete_test_user
 
 client = TestClient(app)
 

@@ -3,13 +3,13 @@ from threading import Event, Lock, Thread
 
 import cv2
 
-OPEN_TIMEOUT_MS = 5000
-READ_TIMEOUT_MS = 5000
-STOP_TIMEOUT_SECONDS = 7
-
 from app.db.session import SessionLocal
 from app.services.camera.rtsp_encryption import decrypt_rtsp_url
 from app.services.vision.runtime import camera_sessions, vision_pipeline
+
+OPEN_TIMEOUT_MS = 5000
+READ_TIMEOUT_MS = 5000
+STOP_TIMEOUT_SECONDS = 7
 
 
 @dataclass

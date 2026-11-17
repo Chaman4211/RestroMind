@@ -32,6 +32,9 @@ TABLE_MANAGEMENT_ROLES = (
     "ASSISTANT_MANAGER",
 )
 
+MANAGEMENT_USER = require_roles(*MANAGEMENT_ROLES)
+TABLE_MANAGEMENT_USER = require_roles(*TABLE_MANAGEMENT_ROLES)
+
 
 def validate_camera_source(db: Session, camera_source_id: int | None):
     if camera_source_id is None:
@@ -60,7 +63,7 @@ def validate_camera_source(db: Session, camera_source_id: int | None):
 def create_restaurant_table(
     payload: RestaurantTableCreate,
     db: Session = Depends(get_db),
-    current_user: StaffUser = Depends(require_roles(*TABLE_MANAGEMENT_ROLES)),
+    current_user: StaffUser = Depends(TABLE_MANAGEMENT_USER),
 ):
     validate_camera_source(db, payload.camera_source_id)
 
@@ -95,7 +98,7 @@ def create_restaurant_table(
 @router.get("", response_model=list[RestaurantTableResponse])
 def list_restaurant_tables(
     db: Session = Depends(get_db),
-    current_user: StaffUser = Depends(require_roles(*MANAGEMENT_ROLES)),
+    current_user: StaffUser = Depends(MANAGEMENT_USER),
 ):
     statement = select(RestaurantTable).order_by(RestaurantTable.id)
     return db.scalars(statement).all()
@@ -105,7 +108,7 @@ def list_restaurant_tables(
 def get_restaurant_table(
     table_id: int,
     db: Session = Depends(get_db),
-    current_user: StaffUser = Depends(require_roles(*MANAGEMENT_ROLES)),
+    current_user: StaffUser = Depends(MANAGEMENT_USER),
 ):
     restaurant_table = db.get(RestaurantTable, table_id)
 
@@ -123,7 +126,7 @@ def update_restaurant_table(
     table_id: int,
     payload: RestaurantTableUpdate,
     db: Session = Depends(get_db),
-    current_user: StaffUser = Depends(require_roles(*MANAGEMENT_ROLES)),
+    current_user: StaffUser = Depends(MANAGEMENT_USER),
 ):
     restaurant_table = db.get(RestaurantTable, table_id)
 
@@ -158,7 +161,7 @@ def update_restaurant_table(
 def delete_restaurant_table(
     table_id: int,
     db: Session = Depends(get_db),
-    current_user: StaffUser = Depends(require_roles(*TABLE_MANAGEMENT_ROLES)),
+    current_user: StaffUser = Depends(TABLE_MANAGEMENT_USER),
 ):
     restaurant_table = db.get(RestaurantTable, table_id)
 

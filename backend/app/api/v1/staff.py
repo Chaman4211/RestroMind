@@ -79,13 +79,13 @@ def update_staff_member(
 
     if "name" in update_data and update_data["name"] is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Staff name cannot be empty",
         )
 
     if "role" in update_data and update_data["role"] is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Staff role cannot be empty",
         )
 

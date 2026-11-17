@@ -1,4 +1,3 @@
-from threading import Event
 
 from app.services.video import rtsp_stream_manager as rtsp_module
 from app.services.video.rtsp_stream_manager import (

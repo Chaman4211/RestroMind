@@ -100,7 +100,7 @@ def update_camera_source(
 
     if requested_url is not None and new_source_type != "RTSP":
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="An RTSP address can only be used with RTSP cameras.",
         )
 
@@ -114,7 +114,7 @@ def update_camera_source(
             or not camera_source.rtsp_url_encrypted
         ):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="An RTSP camera address is required.",
             )
     else:
