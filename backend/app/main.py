@@ -2,17 +2,29 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.alerts import router as alerts_router
+from app.api.v1.auth import router as auth_router
 from app.api.v1.camera_sources import router as camera_sources_router
 from app.api.v1.camera_stream import router as camera_stream_router
 from app.api.v1.health import router as health_router
+from app.api.v1.notifications import router as notifications_router
+from app.api.v1.ordering import router as ordering_router
 from app.api.v1.restaurant_tables import router as restaurant_tables_router
+from app.api.v1.rewards import router as rewards_router
+from app.api.v1.service_requests import router as service_requests_router
+from app.api.v1.staff import router as staff_router
 from app.api.v1.video_processing import router as video_processing_router
+from app.api.v1.wifi import router as wifi_router
 from app.core.config import settings
 
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="Restaurant table monitoring and service management API.",
+)
+
+app.include_router(
+    ordering_router,
+    prefix=settings.api_v1_prefix,
 )
 
 app.add_middleware(
@@ -25,6 +37,16 @@ app.add_middleware(
 
 app.include_router(
     health_router,
+    prefix=settings.api_v1_prefix,
+)
+
+app.include_router(
+    auth_router,
+    prefix=settings.api_v1_prefix,
+)
+
+app.include_router(
+    notifications_router,
     prefix=settings.api_v1_prefix,
 )
 
@@ -49,6 +71,11 @@ app.include_router(
 )
 
 app.include_router(
+    staff_router,
+    prefix=settings.api_v1_prefix,
+)
+
+app.include_router(
     video_processing_router,
     prefix=settings.api_v1_prefix,
 )
@@ -60,3 +87,18 @@ def root():
         "message": "Welcome to RestroMind API",
         "docs": "/docs",
     }
+
+
+app.include_router(
+    service_requests_router,
+    prefix=settings.api_v1_prefix,
+)
+app.include_router(
+    rewards_router,
+    prefix=settings.api_v1_prefix,
+)
+
+app.include_router(
+    wifi_router,
+    prefix=settings.api_v1_prefix,
+)

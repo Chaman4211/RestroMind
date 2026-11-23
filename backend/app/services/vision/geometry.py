@@ -25,9 +25,7 @@ def point_in_polygon(point: Point, polygon: Polygon) -> bool:
         xj, yj = polygon[j]
 
         if (yi > y) != (yj > y):
-            intersection_x = (
-                (xj - xi) * (y - yi) / (yj - yi) + xi
-            )
+            intersection_x = (xj - xi) * (y - yi) / (yj - yi) + xi
 
             if x < intersection_x:
                 inside = not inside
@@ -67,7 +65,4 @@ def normalize_polygon(
     if len(polygon) < 3:
         raise ValueError("A polygon must contain at least three points")
 
-    return [
-        normalize_point(point, frame_width, frame_height)
-        for point in polygon
-    ]
+    return [normalize_point(point, frame_width, frame_height) for point in polygon]

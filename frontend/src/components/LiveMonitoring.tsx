@@ -9,6 +9,7 @@ import {
   Users,
   Wifi,
   WifiOff,
+  Film,
 } from 'lucide-react'
 import {
   getCameraSources,
@@ -17,6 +18,8 @@ import {
   type RestaurantTable,
 } from '../services/api'
 import TableZoneEditor from './TableZoneEditor'
+import UploadVideo from './UploadVideo'
+import RTSPCameraPanel from './RTSPCameraPanel'
 import './LiveMonitoring.css'
 
 type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected'
@@ -33,6 +36,13 @@ type ProcessedTable = {
 type FrameResult = {
   camera_source_id: number
   people_detected: number
+  frame_width: number
+  frame_height: number
+  people: Array<{
+    track_id: number
+    bbox: [number, number, number, number]
+    confidence: number
+  }>
   table_count: number
   assignments: Record<string, number[]>
   tables: ProcessedTable[]
@@ -56,6 +66,7 @@ function LiveMonitoring() {
   const [latestResult, setLatestResult] = useState<FrameResult | null>(null)
   const [lastFrameTime, setLastFrameTime] = useState('')
   const [mirrorCamera, setMirrorCamera] = useState(false)
+  const [monitoringMode, setMonitoringMode] = useState<'live' | 'upload' | 'rtsp'>('live')
 
   const {
     data: cameraSources = [],
@@ -349,7 +360,31 @@ function LiveMonitoring() {
           </div>
       </div>
 
-      <>
+      <div className="monitoring-mode-tabs">
+        <button
+          type="button"
+          className={monitoringMode === 'live' ? 'active' : ''}
+          onClick={() => setMonitoringMode('live')}
+        >
+          <Wifi size={14} /> Live camera
+        </button>
+        <button
+          type="button"
+          className={monitoringMode === 'upload' ? 'active' : ''}
+          onClick={() => setMonitoringMode('upload')}
+        >
+          <Film size={14} /> Upload video
+        </button>
+        <button
+          type="button"
+          className={monitoringMode === 'rtsp' ? 'active' : ''}
+          onClick={() => setMonitoringMode('rtsp')}
+        >
+          <Wifi size={14} /> CCTV / IP camera
+        </button>
+      </div>
+
+      {monitoringMode === 'upload' ? <UploadVideo /> : monitoringMode === 'rtsp' ? <RTSPCameraPanel /> : <>
       {message && (
         <div className="live-message" role="status">
           <AlertCircle size={16} />
@@ -394,6 +429,36 @@ function LiveMonitoring() {
                 <strong>Your camera preview will appear here</strong>
                 <span>Select a camera and start monitoring.</span>
               </div>
+            )}
+            {stream && latestResult && latestResult.frame_width > 0 && (
+              <svg
+                className="detection-overlay"
+                viewBox={`0 0 ${latestResult.frame_width} ${latestResult.frame_height}`}
+                preserveAspectRatio="xMidYMid meet"
+                aria-label="Detected people and tracking IDs"
+              >
+                {latestResult.people.map((person) => {
+                  const [x1, y1, x2, y2] = person.bbox
+                  return (
+                    <g key={person.track_id}>
+                      <rect
+                        x={x1}
+                        y={y1}
+                        width={x2 - x1}
+                        height={y2 - y1}
+                        className="detection-box"
+                      />
+                      <text
+                        x={x1}
+                        y={Math.max(14, y1 - 5)}
+                        className="detection-label"
+                      >
+                        ID {person.track_id}
+                      </text>
+                    </g>
+                  )
+                })}
+              </svg>
             )}
             <div className={`preview-indicator ${connection}`}>
               <Circle size={8} fill="currentColor" />
@@ -572,7 +637,7 @@ function LiveMonitoring() {
         <Wifi size={14} />
         Frame processing runs one frame at a time to avoid overloading the local CPU.
       </div>
-      </>
+      </>}
     </div>
   )
 }

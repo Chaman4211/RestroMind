@@ -46,6 +46,8 @@ class OccupancyStateMachine:
         table_id: int,
         occupied: bool,
         timestamp: datetime | None = None,
+        requires_cleaning: bool = True,
+        allow_exit_transition: bool = True,
     ):
         now = timestamp or datetime.now(UTC)
 
@@ -68,21 +70,21 @@ class OccupancyStateMachine:
                 if state.presence_started_at is None:
                     state.presence_started_at = now
 
-                elapsed = (
-                    now - state.presence_started_at
-                ).total_seconds()
+                elapsed = (now - state.presence_started_at).total_seconds()
 
                 if elapsed >= self.config.enter_threshold_seconds:
                     state.status = TableStatus.OCCUPIED
                     state.occupied_since = state.presence_started_at
                     state.service_reminder_sent = False
 
-                    events.append({
-                        "event_type": "STATUS_CHANGED",
-                        "table_id": table_id,
-                        "status": state.status.value,
-                        "timestamp": now,
-                    })
+                    events.append(
+                        {
+                            "event_type": "STATUS_CHANGED",
+                            "table_id": table_id,
+                            "status": state.status.value,
+                            "timestamp": now,
+                        }
+                    )
 
             elif state.status == TableStatus.OCCUPIED:
                 state.presence_started_at = None
@@ -94,43 +96,90 @@ class OccupancyStateMachine:
                 if state.absence_started_at is None:
                     state.absence_started_at = now
 
-                elapsed = (
-                    now - state.absence_started_at
-                ).total_seconds()
+                elapsed = (now - state.absence_started_at).total_seconds()
 
-                if elapsed >= self.config.exit_threshold_seconds:
-                    state.status = TableStatus.NEEDS_CLEANING
+                if (
+                    elapsed >= self.config.exit_threshold_seconds
+                    and allow_exit_transition
+                ):
+                    state.status = (
+                        TableStatus.NEEDS_CLEANING
+                        if requires_cleaning
+                        else TableStatus.FREE
+                    )
+                    state.occupied_since = None
+                    state.service_reminder_sent = False
+                    state.absence_started_at = None
+                    state.last_detected_at = None
 
-                    events.append({
-                        "event_type": "STATUS_CHANGED",
-                        "table_id": table_id,
-                        "status": state.status.value,
-                        "timestamp": now,
-                    })
+                    events.append(
+                        {
+                            "event_type": "STATUS_CHANGED",
+                            "table_id": table_id,
+                            "status": state.status.value,
+                            "timestamp": now,
+                        }
+                    )
 
         if (
             state.status == TableStatus.OCCUPIED
             and state.occupied_since is not None
             and not state.service_reminder_sent
         ):
-            elapsed = (
-                now - state.occupied_since
-            ).total_seconds()
+            elapsed = (now - state.occupied_since).total_seconds()
 
             if elapsed >= self.config.service_reminder_seconds:
                 state.service_reminder_sent = True
 
-                events.append({
-                    "event_type": "SERVICE_REMINDER",
-                    "table_id": table_id,
-                    "status": state.status.value,
-                    "timestamp": now,
-                })
+                events.append(
+                    {
+                        "event_type": "SERVICE_REMINDER",
+                        "table_id": table_id,
+                        "status": state.status.value,
+                        "timestamp": now,
+                    }
+                )
 
         return {
             "table_id": table_id,
             "status": state.status.value,
             "events": events,
+        }
+
+    def mark_needs_cleaning(
+        self,
+        table_id: int,
+        timestamp: datetime | None = None,
+    ):
+        now = timestamp or datetime.now(UTC)
+
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("Timestamp must be timezone-aware")
+
+        state = self.tables.get(table_id)
+
+        if state is None:
+            raise ValueError("Table is not registered")
+
+        if state.status not in (
+            TableStatus.FREE,
+            TableStatus.OCCUPIED,
+        ):
+            raise ValueError("Table already needs cleaning")
+
+        state.status = TableStatus.NEEDS_CLEANING
+        state.last_update_at = now
+        state.occupied_since = None
+        state.last_detected_at = None
+        state.absence_started_at = None
+        state.presence_started_at = None
+        state.service_reminder_sent = False
+
+        return {
+            "table_id": table_id,
+            "status": state.status.value,
+            "event_type": "CLEANING_REQUIRED",
+            "timestamp": now,
         }
 
     def confirm_cleaning(self, table_id: int, timestamp: datetime | None = None):
@@ -148,6 +197,7 @@ class OccupancyStateMachine:
             raise ValueError("Table does not need cleaning")
 
         state.status = TableStatus.FREE
+        state.last_update_at = now
         state.occupied_since = None
         state.last_detected_at = None
         state.absence_started_at = None

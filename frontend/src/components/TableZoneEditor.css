@@ -179,3 +179,40 @@
     width: 100%;
   }
 }
+
+
+.zone-polygon-other {
+  fill: #65d58a20;
+  stroke: #f2c66d;
+  stroke-width: 2.5;
+}
+
+.zone-polygon-selected {
+  fill: #65d58a35;
+  stroke: #83e6a0;
+  stroke-width: 3.5;
+}
+
+.zone-label {
+  fill: #fff;
+  stroke: #253b2b;
+  stroke-width: 3px;
+  paint-order: stroke;
+  font-size: 18px;
+  font-weight: 800;
+  text-anchor: start;
+  dominant-baseline: auto;
+}
+
+.zone-label-selected {
+  fill: #a7ffba;
+}
+
+.zone-delete-button {
+  background: #fff0ee;
+  color: #a4473c;
+}
+
+.zone-delete-button:hover:not(:disabled) {
+  background: #ffe2de;
+}

@@ -14,19 +14,23 @@ class PersonTracker:
 
     def __init__(self, model_path: Path = MODEL_PATH):
         if not model_path.exists():
-            raise FileNotFoundError(
-                f"YOLO model not found: {model_path}"
-            )
+            raise FileNotFoundError(f"YOLO model not found: {model_path}")
 
         self.model = YOLO(str(model_path))
 
-    def update(self, frame):
+    def update(
+        self,
+        frame,
+        confidence: float = 0.35,
+        image_size: int = 640,
+    ):
         results = self.model.track(
             source=frame,
             persist=True,
             tracker="bytetrack.yaml",
             classes=[0],
-            conf=0.35,
+            conf=confidence,
+            imgsz=image_size,
             verbose=False,
             device="cpu",
         )
@@ -38,22 +42,28 @@ class PersonTracker:
                 continue
 
             boxes = result.boxes
+            track_ids = boxes.id
 
-            if boxes.id is None:
-                continue
-
-            for box, track_id in zip(boxes, boxes.id, strict=True):
+            for index, box in enumerate(boxes):
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
 
-                tracked_people.append({
-                    "track_id": int(track_id),
-                    "bbox": [
-                        float(x1),
-                        float(y1),
-                        float(x2),
-                        float(y2),
-                    ],
-                    "confidence": float(box.conf[0]),
-                })
+                # Keep detections even when YOLO cannot provide track IDs.
+                # Negative IDs are temporary and are not real tracker IDs.
+                track_id = (
+                    int(track_ids[index]) if track_ids is not None else -(index + 1)
+                )
+
+                tracked_people.append(
+                    {
+                        "track_id": track_id,
+                        "bbox": [
+                            float(x1),
+                            float(y1),
+                            float(x2),
+                            float(y2),
+                        ],
+                        "confidence": float(box.conf[0]),
+                    }
+                )
 
         return tracked_people

@@ -25,10 +25,10 @@ class VisionPipeline:
         tracker_factory: Callable[[], PersonTracker] | None = None,
     ):
         self.occupancy_service = (
-    occupancy_service
-    if occupancy_service is not None
-    else shared_occupancy_service
-)
+            occupancy_service
+            if occupancy_service is not None
+            else shared_occupancy_service
+        )
         self.tracker_factory = tracker_factory or PersonTracker
         self.trackers: dict[int, PersonTracker] = {}
 
@@ -52,9 +52,7 @@ class VisionPipeline:
             raise ValueError("A valid video frame is required")
 
         camera_source = db.scalar(
-            select(CameraSource).where(
-                CameraSource.id == camera_source_id
-            )
+            select(CameraSource).where(CameraSource.id == camera_source_id)
         )
 
         if camera_source is None:
@@ -63,22 +61,48 @@ class VisionPipeline:
         if not camera_source.is_active:
             raise ValueError("Camera source is inactive")
 
-        tables = db.scalars(
-            select(RestaurantTable).where(
-                RestaurantTable.camera_source_id == camera_source_id,
-                RestaurantTable.zone_coordinates.is_not(None),
-            )
-        ).all()
+        is_upload = camera_source.source_type == "UPLOAD"
+
+        if is_upload:
+            tables = db.scalars(
+                select(RestaurantTable)
+                .where(
+                    RestaurantTable.upload_camera_source_id == camera_source_id,
+                    RestaurantTable.upload_zone_coordinates.is_not(None),
+                )
+                .order_by(RestaurantTable.id)
+            ).all()
+        else:
+            tables = db.scalars(
+                select(RestaurantTable)
+                .where(
+                    RestaurantTable.camera_source_id == camera_source_id,
+                    RestaurantTable.zone_coordinates.is_not(None),
+                )
+                .order_by(RestaurantTable.id)
+            ).all()
 
         tracker = self._get_tracker(camera_source_id)
-        people = tracker.update(frame)
+
+        if is_upload:
+            people = tracker.update(
+                frame,
+                confidence=0.25,
+                image_size=768,
+            )
+        else:
+            people = tracker.update(frame)
 
         frame_height, frame_width = frame.shape[:2]
 
         table_data = [
             {
                 "id": table.id,
-                "zone_coordinates": table.zone_coordinates,
+                "zone_coordinates": (
+                    table.upload_zone_coordinates
+                    if is_upload
+                    else table.zone_coordinates
+                ),
             }
             for table in tables
         ]
@@ -102,18 +126,30 @@ class VisionPipeline:
                 timestamp=timestamp,
             )
 
-            occupancy_results.append({
-                "table_id": table.id,
-                "occupied": bool(table_people),
-                "person_count": len(table_people),
-                "track_ids": table_people,
-                "status": result["status"],
-                "events": result["events"],
-            })
+            occupancy_results.append(
+                {
+                    "table_id": table.id,
+                    "occupied": bool(table_people),
+                    "person_count": len(table_people),
+                    "track_ids": table_people,
+                    "status": result["status"],
+                    "events": result["events"],
+                }
+            )
 
         return {
             "camera_source_id": camera_source_id,
             "people_detected": len(people),
+            "frame_width": frame_width,
+            "frame_height": frame_height,
+            "people": [
+                {
+                    "track_id": person["track_id"],
+                    "bbox": person["bbox"],
+                    "confidence": person["confidence"],
+                }
+                for person in people
+            ],
             "table_count": len(tables),
             "assignments": assignments,
             "tables": occupancy_results,
