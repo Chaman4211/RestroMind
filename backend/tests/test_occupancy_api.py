@@ -52,9 +52,7 @@ def test_staff_can_confirm_table_cleaning():
         assert alert.resolved_at is not None
 
         events = (
-            db.query(OccupancyEvent)
-            .filter(OccupancyEvent.table_id == table_id)
-            .all()
+            db.query(OccupancyEvent).filter(OccupancyEvent.table_id == table_id).all()
         )
 
         assert len(events) == 1
@@ -63,13 +61,13 @@ def test_staff_can_confirm_table_cleaning():
 
     finally:
         if table_id is not None:
-            db.query(Alert).filter(
-                Alert.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(Alert).filter(Alert.table_id == table_id).delete(
+                synchronize_session=False
+            )
 
-            db.query(OccupancyEvent).filter(
-                OccupancyEvent.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(OccupancyEvent).filter(OccupancyEvent.table_id == table_id).delete(
+                synchronize_session=False
+            )
 
             table = db.get(RestaurantTable, table_id)
             if table is not None:
@@ -158,17 +156,21 @@ def test_waiter_can_report_vacant_table_for_cleaning():
         db.refresh(table)
         assert table.status == "NEEDS_CLEANING"
 
-        alerts = db.query(Alert).filter(
-            Alert.table_id == table_id,
-            Alert.alert_type == "CLEANING_REQUIRED",
-            Alert.status == "OPEN",
-        ).all()
+        alerts = (
+            db.query(Alert)
+            .filter(
+                Alert.table_id == table_id,
+                Alert.alert_type == "CLEANING_REQUIRED",
+                Alert.status == "OPEN",
+            )
+            .all()
+        )
         assert len(alerts) == 1
         assert "Food spill on the table" in alerts[0].message
 
-        events = db.query(OccupancyEvent).filter(
-            OccupancyEvent.table_id == table_id
-        ).all()
+        events = (
+            db.query(OccupancyEvent).filter(OccupancyEvent.table_id == table_id).all()
+        )
         assert len(events) == 1
         assert events[0].previous_status == "FREE"
         assert events[0].new_status == "NEEDS_CLEANING"
@@ -178,9 +180,9 @@ def test_waiter_can_report_vacant_table_for_cleaning():
             db.query(Alert).filter(Alert.table_id == table_id).delete(
                 synchronize_session=False
             )
-            db.query(OccupancyEvent).filter(
-                OccupancyEvent.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(OccupancyEvent).filter(OccupancyEvent.table_id == table_id).delete(
+                synchronize_session=False
+            )
             table = db.get(RestaurantTable, table_id)
             if table is not None:
                 db.delete(table)
@@ -215,11 +217,15 @@ def test_duplicate_cleaning_report_reuses_open_alert():
         assert second.json()["created"] is False
         assert first.json()["alert_id"] == second.json()["alert_id"]
 
-        count = db.query(Alert).filter(
-            Alert.table_id == table_id,
-            Alert.alert_type == "CLEANING_REQUIRED",
-            Alert.status == "OPEN",
-        ).count()
+        count = (
+            db.query(Alert)
+            .filter(
+                Alert.table_id == table_id,
+                Alert.alert_type == "CLEANING_REQUIRED",
+                Alert.status == "OPEN",
+            )
+            .count()
+        )
         assert count == 1
 
     finally:
@@ -227,9 +233,9 @@ def test_duplicate_cleaning_report_reuses_open_alert():
             db.query(Alert).filter(Alert.table_id == table_id).delete(
                 synchronize_session=False
             )
-            db.query(OccupancyEvent).filter(
-                OccupancyEvent.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(OccupancyEvent).filter(OccupancyEvent.table_id == table_id).delete(
+                synchronize_session=False
+            )
             table = db.get(RestaurantTable, table_id)
             if table is not None:
                 db.delete(table)
@@ -268,10 +274,14 @@ def test_cleaning_report_rejected_for_occupied_table():
         db.refresh(table)
         assert table.status == "OCCUPIED"
 
-        count = db.query(Alert).filter(
-            Alert.table_id == table_id,
-            Alert.alert_type == "CLEANING_REQUIRED",
-        ).count()
+        count = (
+            db.query(Alert)
+            .filter(
+                Alert.table_id == table_id,
+                Alert.alert_type == "CLEANING_REQUIRED",
+            )
+            .count()
+        )
         assert count == 0
 
     finally:
@@ -279,9 +289,9 @@ def test_cleaning_report_rejected_for_occupied_table():
             db.query(Alert).filter(Alert.table_id == table_id).delete(
                 synchronize_session=False
             )
-            db.query(OccupancyEvent).filter(
-                OccupancyEvent.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(OccupancyEvent).filter(OccupancyEvent.table_id == table_id).delete(
+                synchronize_session=False
+            )
             table = db.get(RestaurantTable, table_id)
             if table is not None:
                 db.delete(table)
@@ -322,9 +332,9 @@ def test_cleaning_staff_cannot_report_cleaning_need():
             db.query(Alert).filter(Alert.table_id == table_id).delete(
                 synchronize_session=False
             )
-            db.query(OccupancyEvent).filter(
-                OccupancyEvent.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(OccupancyEvent).filter(OccupancyEvent.table_id == table_id).delete(
+                synchronize_session=False
+            )
             table = db.get(RestaurantTable, table_id)
             if table is not None:
                 db.delete(table)

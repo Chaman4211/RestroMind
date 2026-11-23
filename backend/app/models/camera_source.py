@@ -12,9 +12,7 @@ class CameraSource(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     source_type: Mapped[str] = mapped_column(String(30), nullable=False)
-    rtsp_url_encrypted: Mapped[str | None] = mapped_column(
-        Text, nullable=True
-    )
+    rtsp_url_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default=text("true"), nullable=False
     )

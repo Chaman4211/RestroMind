@@ -8,8 +8,8 @@ from sqlalchemy import select
 from app.db.session import SessionLocal
 from app.models.alert import Alert
 from app.models.occupancy_event import OccupancyEvent
-from app.models.restaurant_table import RestaurantTable
 from app.models.restaurant_order import RestaurantOrder
+from app.models.restaurant_table import RestaurantTable
 from app.services.occupancy.occupancy_service import OccupancyService
 from app.services.occupancy.state_machine import (
     OccupancyConfig,
@@ -55,18 +55,14 @@ def test_occupancy_lifecycle_is_saved_in_database():
         assert table.status == "OCCUPIED"
 
         events = db.scalars(
-            select(OccupancyEvent).where(
-                OccupancyEvent.table_id == table_id
-            )
+            select(OccupancyEvent).where(OccupancyEvent.table_id == table_id)
         ).all()
 
         assert len(events) == 1
         assert events[0].previous_status == "FREE"
         assert events[0].new_status == "OCCUPIED"
 
-        service.process_detection(
-            db, table_id, False, start + timedelta(seconds=10)
-        )
+        service.process_detection(db, table_id, False, start + timedelta(seconds=10))
 
         result = service.process_detection(
             db, table_id, False, start + timedelta(seconds=20)
@@ -88,9 +84,7 @@ def test_occupancy_lifecycle_is_saved_in_database():
         assert cleaning_alerts == []
 
         events = db.scalars(
-            select(OccupancyEvent).where(
-                OccupancyEvent.table_id == table_id
-            )
+            select(OccupancyEvent).where(OccupancyEvent.table_id == table_id)
         ).all()
 
         assert len(events) == 2
@@ -99,13 +93,13 @@ def test_occupancy_lifecycle_is_saved_in_database():
 
     finally:
         if table_id is not None:
-            db.query(Alert).filter(
-                Alert.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(Alert).filter(Alert.table_id == table_id).delete(
+                synchronize_session=False
+            )
 
-            db.query(OccupancyEvent).filter(
-                OccupancyEvent.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(OccupancyEvent).filter(OccupancyEvent.table_id == table_id).delete(
+                synchronize_session=False
+            )
 
             table = db.get(RestaurantTable, table_id)
             if table is not None:
@@ -159,9 +153,7 @@ def test_paid_order_departure_requires_cleaning_and_confirmation():
         table_id = table.id
 
         service.process_detection(db, table_id, True, start)
-        service.process_detection(
-            db, table_id, True, start + timedelta(seconds=5)
-        )
+        service.process_detection(db, table_id, True, start + timedelta(seconds=5))
 
         order = RestaurantOrder(
             order_number=f"TEST-{uuid4().hex[:12]}",
@@ -174,9 +166,7 @@ def test_paid_order_departure_requires_cleaning_and_confirmation():
         db.add(order)
         db.commit()
 
-        service.process_detection(
-            db, table_id, False, start + timedelta(seconds=10)
-        )
+        service.process_detection(db, table_id, False, start + timedelta(seconds=10))
         result = service.process_detection(
             db, table_id, False, start + timedelta(seconds=20)
         )
@@ -196,9 +186,7 @@ def test_paid_order_departure_requires_cleaning_and_confirmation():
 
         assert len(alerts) == 1
 
-        result = service.confirm_cleaning(
-            db, table_id, start + timedelta(seconds=30)
-        )
+        result = service.confirm_cleaning(db, table_id, start + timedelta(seconds=30))
 
         assert result["status"] == "FREE"
 
@@ -227,13 +215,13 @@ def test_paid_order_departure_requires_cleaning_and_confirmation():
                 RestaurantOrder.table_id == table_id
             ).delete(synchronize_session=False)
 
-            db.query(Alert).filter(
-                Alert.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(Alert).filter(Alert.table_id == table_id).delete(
+                synchronize_session=False
+            )
 
-            db.query(OccupancyEvent).filter(
-                OccupancyEvent.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(OccupancyEvent).filter(OccupancyEvent.table_id == table_id).delete(
+                synchronize_session=False
+            )
 
             table = db.get(RestaurantTable, table_id)
             if table is not None:
@@ -271,9 +259,7 @@ def test_unpaid_order_keeps_table_occupied_after_customer_departure():
         table_id = table.id
 
         service.process_detection(db, table_id, True, start)
-        service.process_detection(
-            db, table_id, True, start + timedelta(seconds=5)
-        )
+        service.process_detection(db, table_id, True, start + timedelta(seconds=5))
 
         order = RestaurantOrder(
             order_number=f"TEST-{uuid4().hex[:12]}",
@@ -286,9 +272,7 @@ def test_unpaid_order_keeps_table_occupied_after_customer_departure():
         db.add(order)
         db.commit()
 
-        service.process_detection(
-            db, table_id, False, start + timedelta(seconds=10)
-        )
+        service.process_detection(db, table_id, False, start + timedelta(seconds=10))
 
         result = service.process_detection(
             db, table_id, False, start + timedelta(seconds=20)
@@ -325,13 +309,13 @@ def test_unpaid_order_keeps_table_occupied_after_customer_departure():
                 RestaurantOrder.table_id == table_id
             ).delete(synchronize_session=False)
 
-            db.query(Alert).filter(
-                Alert.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(Alert).filter(Alert.table_id == table_id).delete(
+                synchronize_session=False
+            )
 
-            db.query(OccupancyEvent).filter(
-                OccupancyEvent.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(OccupancyEvent).filter(OccupancyEvent.table_id == table_id).delete(
+                synchronize_session=False
+            )
 
             table = db.get(RestaurantTable, table_id)
             if table is not None:

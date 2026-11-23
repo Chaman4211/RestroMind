@@ -25,10 +25,10 @@ class VisionPipeline:
         tracker_factory: Callable[[], PersonTracker] | None = None,
     ):
         self.occupancy_service = (
-    occupancy_service
-    if occupancy_service is not None
-    else shared_occupancy_service
-)
+            occupancy_service
+            if occupancy_service is not None
+            else shared_occupancy_service
+        )
         self.tracker_factory = tracker_factory or PersonTracker
         self.trackers: dict[int, PersonTracker] = {}
 
@@ -52,9 +52,7 @@ class VisionPipeline:
             raise ValueError("A valid video frame is required")
 
         camera_source = db.scalar(
-            select(CameraSource).where(
-                CameraSource.id == camera_source_id
-            )
+            select(CameraSource).where(CameraSource.id == camera_source_id)
         )
 
         if camera_source is None:
@@ -67,17 +65,21 @@ class VisionPipeline:
 
         if is_upload:
             tables = db.scalars(
-                select(RestaurantTable).where(
+                select(RestaurantTable)
+                .where(
                     RestaurantTable.upload_camera_source_id == camera_source_id,
                     RestaurantTable.upload_zone_coordinates.is_not(None),
-                ).order_by(RestaurantTable.id)
+                )
+                .order_by(RestaurantTable.id)
             ).all()
         else:
             tables = db.scalars(
-                select(RestaurantTable).where(
+                select(RestaurantTable)
+                .where(
                     RestaurantTable.camera_source_id == camera_source_id,
                     RestaurantTable.zone_coordinates.is_not(None),
-                ).order_by(RestaurantTable.id)
+                )
+                .order_by(RestaurantTable.id)
             ).all()
 
         tracker = self._get_tracker(camera_source_id)
@@ -124,14 +126,16 @@ class VisionPipeline:
                 timestamp=timestamp,
             )
 
-            occupancy_results.append({
-                "table_id": table.id,
-                "occupied": bool(table_people),
-                "person_count": len(table_people),
-                "track_ids": table_people,
-                "status": result["status"],
-                "events": result["events"],
-            })
+            occupancy_results.append(
+                {
+                    "table_id": table.id,
+                    "occupied": bool(table_people),
+                    "person_count": len(table_people),
+                    "track_ids": table_people,
+                    "status": result["status"],
+                    "events": result["events"],
+                }
+            )
 
         return {
             "camera_source_id": camera_source_id,

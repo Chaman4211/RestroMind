@@ -22,9 +22,7 @@ def create_test_user(role="OWNER", is_active=True):
 
     token = create_access_token(str(user_id))
 
-    return user_id, {
-        "Authorization": f"Bearer {token}"
-    }
+    return user_id, {"Authorization": f"Bearer {token}"}
 
 
 def delete_test_user(user_id):

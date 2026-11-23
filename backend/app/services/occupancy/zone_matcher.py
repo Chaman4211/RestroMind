@@ -71,9 +71,7 @@ def match_people_to_tables(people, tables, frame_width, frame_height):
         Dictionary mapping table IDs to lists of person track IDs.
     """
     assignments = {
-        table["id"]: []
-        for table in tables
-        if table.get("zone_coordinates") is not None
+        table["id"]: [] for table in tables if table.get("zone_coordinates") is not None
     }
 
     table_polygons = {

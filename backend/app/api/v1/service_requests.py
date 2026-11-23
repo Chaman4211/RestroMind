@@ -1,14 +1,13 @@
-
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.deps import get_current_user, require_roles
+from app.api.deps import require_roles
 from app.db.session import get_db
-from app.models.service_request import ServiceRequest
 from app.models.restaurant_order import RestaurantOrder
 from app.models.restaurant_table import RestaurantTable
+from app.models.service_request import ServiceRequest
 from app.models.staff_user import StaffUser
 from app.schemas.service_request import (
     ServiceRequestCreate,
@@ -204,11 +203,13 @@ def update_service_request_status(
             detail="This request is assigned to another staff member",
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if payload.status == "ACKNOWLEDGED":
         if item.status == "COMPLETED":
-            raise HTTPException(status_code=409, detail="This request is already completed")
+            raise HTTPException(
+                status_code=409, detail="This request is already completed"
+            )
         if item.status == "OPEN":
             item.status = "ACKNOWLEDGED"
             item.acknowledged_at = now

@@ -78,10 +78,7 @@ def test_restaurant_table_crud():
 
         list_response = client.get("/api/v1/restaurant-tables", headers=headers)
         assert list_response.status_code == 200
-        assert any(
-            table["id"] == table_id
-            for table in list_response.json()
-        )
+        assert any(table["id"] == table_id for table in list_response.json())
 
         get_response = client.get(
             f"/api/v1/restaurant-tables/{table_id}",
@@ -124,9 +121,7 @@ def test_restaurant_table_crud():
                     db.delete(table)
 
             camera = db.scalar(
-                select(CameraSource).where(
-                    CameraSource.name == camera_name
-                )
+                select(CameraSource).where(CameraSource.name == camera_name)
             )
             if camera is not None:
                 db.delete(camera)
@@ -176,13 +171,13 @@ def test_table_with_history_cannot_be_deleted():
 
     finally:
         if table_id is not None:
-            db.query(OccupancyEvent).filter(
-                OccupancyEvent.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(OccupancyEvent).filter(OccupancyEvent.table_id == table_id).delete(
+                synchronize_session=False
+            )
 
-            db.query(Alert).filter(
-                Alert.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(Alert).filter(Alert.table_id == table_id).delete(
+                synchronize_session=False
+            )
 
             table = db.get(RestaurantTable, table_id)
             if table is not None:

@@ -1,4 +1,3 @@
-
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -68,9 +67,7 @@ def list_alerts(
     )
 
     if current_user.role not in MANAGEMENT_ROLES:
-        statement = statement.where(
-            Alert.assigned_staff_id == current_user.id
-        )
+        statement = statement.where(Alert.assigned_staff_id == current_user.id)
 
     if status is not None:
         statement = statement.where(Alert.status == status)
@@ -131,7 +128,5 @@ def update_alert_assignment(
     alert.assigned_staff_id = payload.assigned_staff_id
     db.commit()
 
-    result = db.execute(
-        alert_response_query().where(Alert.id == alert_id)
-    ).one()
+    result = db.execute(alert_response_query().where(Alert.id == alert_id)).one()
     return serialize_alert(result)

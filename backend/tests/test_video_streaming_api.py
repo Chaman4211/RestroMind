@@ -171,9 +171,7 @@ def test_live_stream_rejects_unsupported_camera(
 
     try:
         with pytest.raises(WebSocketDisconnect) as error:
-            with client.websocket_connect(
-                f"/api/v1/camera-sources/{camera_id}/stream"
-            ):
+            with client.websocket_connect(f"/api/v1/camera-sources/{camera_id}/stream"):
                 pass
 
         assert error.value.code == 1008
@@ -184,9 +182,7 @@ def test_live_stream_rejects_unsupported_camera(
 
 def test_live_stream_rejects_missing_camera():
     with pytest.raises(WebSocketDisconnect) as error:
-        with client.websocket_connect(
-            "/api/v1/camera-sources/999999999/stream"
-        ):
+        with client.websocket_connect("/api/v1/camera-sources/999999999/stream"):
             pass
 
     assert error.value.code == 1008

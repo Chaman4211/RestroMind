@@ -45,18 +45,14 @@ def test_camera_source_crud():
         )
         assert invalid_update_response.status_code == 422
 
-        unchanged_response = client.get(
-            f"/api/v1/camera-sources/{source_id}"
-        )
+        unchanged_response = client.get(f"/api/v1/camera-sources/{source_id}")
         assert unchanged_response.json()["source_type"] == "UPLOAD"
 
         list_response = client.get("/api/v1/camera-sources")
         assert list_response.status_code == 200
         assert any(item["id"] == source_id for item in list_response.json())
 
-        get_response = client.get(
-            f"/api/v1/camera-sources/{source_id}"
-        )
+        get_response = client.get(f"/api/v1/camera-sources/{source_id}")
         assert get_response.status_code == 200
         assert get_response.json()["id"] == source_id
 
@@ -69,14 +65,10 @@ def test_camera_source_crud():
         assert update_response.json()["name"] == f"{name}-updated"
         assert update_response.json()["is_active"] is False
 
-        delete_response = client.delete(
-            f"/api/v1/camera-sources/{source_id}"
-        )
+        delete_response = client.delete(f"/api/v1/camera-sources/{source_id}")
         assert delete_response.status_code == 204
 
-        missing_response = client.get(
-            f"/api/v1/camera-sources/{source_id}"
-        )
+        missing_response = client.get(f"/api/v1/camera-sources/{source_id}")
         assert missing_response.status_code == 404
 
         source_id = None
@@ -132,9 +124,7 @@ def test_rtsp_camera_credentials_are_encrypted_and_hidden():
         finally:
             db.close()
 
-        get_response = client.get(
-            f"/api/v1/camera-sources/{source_id}"
-        )
+        get_response = client.get(f"/api/v1/camera-sources/{source_id}")
         assert get_response.status_code == 200
         assert "testpassword" not in get_response.text
 
@@ -261,9 +251,7 @@ def test_rtsp_start_stop_and_status_endpoints(monkeypatch):
         monkeypatch.setattr(manager, "get_status", fake_status)
         monkeypatch.setattr(manager, "stop", fake_stop)
 
-        start_response = client.post(
-            f"/api/v1/camera-sources/{source_id}/rtsp/start"
-        )
+        start_response = client.post(f"/api/v1/camera-sources/{source_id}/rtsp/start")
 
         assert start_response.status_code == 200
         assert start_response.json()["status"] == "RUNNING"
@@ -272,16 +260,12 @@ def test_rtsp_start_stop_and_status_endpoints(monkeypatch):
         assert captured["camera_source_id"] == source_id
         assert captured["encrypted_url"] != rtsp_url
 
-        status_response = client.get(
-            f"/api/v1/camera-sources/{source_id}/rtsp/status"
-        )
+        status_response = client.get(f"/api/v1/camera-sources/{source_id}/rtsp/status")
 
         assert status_response.status_code == 200
         assert status_response.json()["status"] == "RUNNING"
 
-        stop_response = client.post(
-            f"/api/v1/camera-sources/{source_id}/rtsp/stop"
-        )
+        stop_response = client.post(f"/api/v1/camera-sources/{source_id}/rtsp/stop")
 
         assert stop_response.status_code == 200
         assert stop_response.json()["status"] == "STOPPED"

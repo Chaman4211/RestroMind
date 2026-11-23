@@ -58,37 +58,45 @@ async def live_camera_stream(
     await websocket.accept()
 
     try:
-        await websocket.send_json({
-            "type": "connected",
-            "camera_source_id": camera_source_id,
-            "message": "Live camera connected",
-        })
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "camera_source_id": camera_source_id,
+                "message": "Live camera connected",
+            }
+        )
 
         while True:
             frame_bytes = await websocket.receive_bytes()
 
             if not frame_bytes:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "Empty frame received",
-                })
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "message": "Empty frame received",
+                    }
+                )
                 continue
 
             if len(frame_bytes) > MAX_FRAME_SIZE_BYTES:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "Frame exceeds the 2 MB limit",
-                })
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "message": "Frame exceeds the 2 MB limit",
+                    }
+                )
                 continue
 
             frame_array = np.frombuffer(frame_bytes, dtype=np.uint8)
             frame = cv2.imdecode(frame_array, cv2.IMREAD_COLOR)
 
             if frame is None:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "Invalid JPEG frame",
-                })
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "message": "Invalid JPEG frame",
+                    }
+                )
                 continue
 
             result = await run_in_threadpool(
@@ -97,11 +105,13 @@ async def live_camera_stream(
                 frame,
             )
 
-            await websocket.send_json({
-                "type": "frame_processed",
-                "timestamp": datetime.now(UTC).isoformat(),
-                "result": jsonable_encoder(result),
-            })
+            await websocket.send_json(
+                {
+                    "type": "frame_processed",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "result": jsonable_encoder(result),
+                }
+            )
 
     except WebSocketDisconnect:
         pass

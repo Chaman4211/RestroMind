@@ -120,11 +120,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
     email = str(payload.email).lower()
 
-    user = (
-        db.query(StaffUser)
-        .filter(StaffUser.email == email)
-        .first()
-    )
+    user = db.query(StaffUser).filter(StaffUser.email == email).first()
 
     if (
         user is None

@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.restaurant_table import RestaurantTable
@@ -47,7 +47,7 @@ class RewardAnswer(BaseModel):
 
 
 def today_utc():
-    return datetime.now(timezone.utc).date()
+    return datetime.now(UTC).date()
 
 
 def get_challenge(challenge_date):
@@ -56,11 +56,7 @@ def get_challenge(challenge_date):
 
 
 def get_or_create_account(db: Session, table_id: int):
-    account = (
-        db.query(RewardAccount)
-        .filter(RewardAccount.table_id == table_id)
-        .first()
-    )
+    account = db.query(RewardAccount).filter(RewardAccount.table_id == table_id).first()
     if account is None:
         account = RewardAccount(table_id=table_id, points=0)
         db.add(account)

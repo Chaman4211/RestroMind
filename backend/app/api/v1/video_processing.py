@@ -23,7 +23,6 @@ video_processor = VideoProcessor(
 )
 
 
-
 @router.post("/{camera_source_id}/process-video")
 def process_uploaded_video(
     camera_source_id: int,
@@ -74,7 +73,7 @@ def process_uploaded_video(
                     total_size += len(chunk)
 
                     if total_size > MAX_VIDEO_SIZE_BYTES:
-                        raise HTTPException(
+                        raise HTTPException(  # noqa: TRY301
                             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                             detail="Video exceeds the 100 MB upload limit",
                         )
@@ -82,7 +81,7 @@ def process_uploaded_video(
                     destination.write(chunk)
 
             if total_size == 0:
-                raise HTTPException(
+                raise HTTPException(  # noqa: TRY301
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Uploaded video is empty",
                 )
@@ -94,7 +93,7 @@ def process_uploaded_video(
                     video_path=video_path,
                 )
             except ValueError as error:
-                raise HTTPException(
+                raise HTTPException(  # noqa: TRY301
                     status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail=str(error),
                 ) from error
@@ -160,7 +159,7 @@ def process_uploaded_video_stream(
                 total_size += len(chunk)
 
                 if total_size > MAX_VIDEO_SIZE_BYTES:
-                    raise HTTPException(
+                    raise HTTPException(  # noqa: TRY301
                         status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                         detail="Video exceeds the 100 MB upload limit",
                     )
@@ -168,7 +167,7 @@ def process_uploaded_video_stream(
                 destination.write(chunk)
 
         if total_size == 0:
-            raise HTTPException(
+            raise HTTPException(  # noqa: TRY301
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Uploaded video is empty",
             )
@@ -189,16 +188,26 @@ def process_uploaded_video_stream(
                 yield json.dumps(event, default=str) + "\\n"
 
         except ValueError as error:
-            yield json.dumps({
-                "type": "error",
-                "message": str(error),
-            }) + "\\n"
+            yield (
+                json.dumps(
+                    {
+                        "type": "error",
+                        "message": str(error),
+                    }
+                )
+                + "\\n"
+            )
 
         except Exception:
-            yield json.dumps({
-                "type": "error",
-                "message": "Video processing failed. Check the backend logs.",
-            }) + "\\n"
+            yield (
+                json.dumps(
+                    {
+                        "type": "error",
+                        "message": "Video processing failed. Check the backend logs.",
+                    }
+                )
+                + "\\n"
+            )
             raise
 
         finally:

@@ -23,13 +23,13 @@ class StaffUser(Base):
         String(100), unique=True, nullable=True, index=True
     )
 
-    password_hash: Mapped[str | None] = mapped_column(
-        String(255), nullable=True
-    )
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     role: Mapped[str] = mapped_column(
-        String(30), default="CLEANING_STAFF",
-        server_default=text("'CLEANING_STAFF'"), nullable=False
+        String(30),
+        default="CLEANING_STAFF",
+        server_default=text("'CLEANING_STAFF'"),
+        nullable=False,
     )
 
     is_active: Mapped[bool] = mapped_column(
@@ -40,6 +40,4 @@ class StaffUser(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    assigned_alerts = relationship(
-        "Alert", back_populates="assigned_staff"
-    )
+    assigned_alerts = relationship("Alert", back_populates="assigned_staff")

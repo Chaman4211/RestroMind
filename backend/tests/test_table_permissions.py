@@ -25,13 +25,11 @@ def create_cleaning_table(db):
 
 
 def cleanup_table(db, table_id):
-    db.query(Alert).filter(
-        Alert.table_id == table_id
-    ).delete(synchronize_session=False)
+    db.query(Alert).filter(Alert.table_id == table_id).delete(synchronize_session=False)
 
-    db.query(OccupancyEvent).filter(
-        OccupancyEvent.table_id == table_id
-    ).delete(synchronize_session=False)
+    db.query(OccupancyEvent).filter(OccupancyEvent.table_id == table_id).delete(
+        synchronize_session=False
+    )
 
     table = db.get(RestaurantTable, table_id)
     if table is not None:

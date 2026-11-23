@@ -1,15 +1,15 @@
 import secrets
-from datetime import datetime, timezone
-from typing import Literal
-from pydantic import BaseModel, Field
+from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.deps import get_current_user, require_roles
+from app.api.deps import require_roles
 from app.db.session import get_db
 from app.models.alert import Alert
 from app.models.menu_item import MenuItem
@@ -19,7 +19,6 @@ from app.models.restaurant_table import RestaurantTable
 from app.models.service_request import ServiceRequest
 from app.models.staff_user import StaffUser
 from app.models.table_order_session import TableOrderSession
-from app.services.occupancy.runtime import occupancy_service
 from app.schemas.ordering import (
     MenuItemCreate,
     MenuItemResponse,
@@ -32,16 +31,21 @@ from app.schemas.ordering import (
     SharedCartItemChange,
     SharedCartSubmit,
 )
+from app.services.occupancy.runtime import occupancy_service
 
 router = APIRouter(tags=["Restaurant Ordering"])
 
-MANAGEMENT_USER = require_roles(
-    "OWNER", "MANAGER", "ASSISTANT_MANAGER", "SUPERVISOR"
-)
+MANAGEMENT_USER = require_roles("OWNER", "MANAGER", "ASSISTANT_MANAGER", "SUPERVISOR")
 
 KITCHEN_USER = require_roles(
-    "OWNER", "MANAGER", "ASSISTANT_MANAGER", "SUPERVISOR",
-    "HEAD_CHEF", "SOUS_CHEF", "CHEF", "KITCHEN_ASSISTANT"
+    "OWNER",
+    "MANAGER",
+    "ASSISTANT_MANAGER",
+    "SUPERVISOR",
+    "HEAD_CHEF",
+    "SOUS_CHEF",
+    "CHEF",
+    "KITCHEN_ASSISTANT",
 )
 
 
@@ -89,8 +93,8 @@ def create_menu_item(
     current_user: StaffUser = Depends(MANAGEMENT_USER),
 ):
     data = payload.model_dump()
-    data['size_prices'] = {
-        key: float(value) for key, value in data.get('size_prices', {}).items()
+    data["size_prices"] = {
+        key: float(value) for key, value in data.get("size_prices", {}).items()
     }
     item = MenuItem(**data)
     db.add(item)
@@ -111,9 +115,9 @@ def update_menu_item(
         raise HTTPException(status_code=404, detail="Menu item not found")
 
     updates = payload.model_dump(exclude_unset=True)
-    if 'size_prices' in updates and updates['size_prices'] is not None:
-        updates['size_prices'] = {
-            key: float(value) for key, value in updates['size_prices'].items()
+    if "size_prices" in updates and updates["size_prices"] is not None:
+        updates["size_prices"] = {
+            key: float(value) for key, value in updates["size_prices"].items()
         }
     for key, value in updates.items():
         setattr(item, key, value)
@@ -135,8 +139,6 @@ def delete_menu_item(
 
     db.delete(item)
     db.commit()
-
-
 
 
 def _get_or_create_table_session(db: Session, table_id: int) -> TableOrderSession:
@@ -203,7 +205,9 @@ def change_shared_cart_item(
     size_prices = menu_item.size_prices or {}
     if size_prices:
         if payload.size is None or payload.size not in size_prices:
-            raise HTTPException(status_code=400, detail="Please select a valid item size")
+            raise HTTPException(
+                status_code=400, detail="Please select a valid item size"
+            )
         unit_price = Decimal(str(size_prices[payload.size]))
     else:
         if payload.size is not None:
@@ -225,21 +229,25 @@ def change_shared_cart_item(
             if quantity <= 0:
                 cart.remove(line)
             elif quantity > 30:
-                raise HTTPException(status_code=400, detail="Maximum quantity is 30 per cart line")
+                raise HTTPException(
+                    status_code=400, detail="Maximum quantity is 30 per cart line"
+                )
             else:
                 line["quantity"] = quantity
             found = True
             break
 
     if not found and payload.quantity_delta > 0:
-        cart.append({
-            "menu_item_id": menu_item.id,
-            "item_name": menu_item.name,
-            "size": payload.size,
-            "unit_price": str(unit_price),
-            "quantity": payload.quantity_delta,
-            "notes": payload.notes,
-        })
+        cart.append(
+            {
+                "menu_item_id": menu_item.id,
+                "item_name": menu_item.name,
+                "size": payload.size,
+                "unit_price": str(unit_price),
+                "quantity": payload.quantity_delta,
+                "notes": payload.notes,
+            }
+        )
 
     session.cart = cart
     db.commit()
@@ -270,7 +278,9 @@ def submit_shared_table_cart(
         .first()
     )
     if session is None:
-        raise HTTPException(status_code=404, detail="No shared cart exists for this table")
+        raise HTTPException(
+            status_code=404, detail="No shared cart exists for this table"
+        )
 
     cart = list(session.cart or [])
     if not cart:
@@ -288,7 +298,9 @@ def submit_shared_table_cart(
         if menu_item is None or not menu_item.is_available:
             raise HTTPException(
                 status_code=409,
-                detail=f"{line.get('item_name', 'A selected item')} is no longer available",
+                detail=(
+                    f"{line.get('item_name', 'A selected item')} is no longer available"
+                ),
             )
 
         quantity = int(line["quantity"])
@@ -297,25 +309,32 @@ def submit_shared_table_cart(
 
         if size_prices:
             if not size or size not in size_prices:
-                raise HTTPException(status_code=409, detail=f"Please reselect the size for {menu_item.name}")
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Please reselect the size for {menu_item.name}",
+                )
             unit_price = Decimal(str(size_prices[size]))
         else:
             if size:
-                raise HTTPException(status_code=409, detail=f"{menu_item.name} no longer has that size")
+                raise HTTPException(
+                    status_code=409, detail=f"{menu_item.name} no longer has that size"
+                )
             unit_price = menu_item.price
 
         total += unit_price * quantity
-        order_items.append(OrderItem(
-            menu_item_id=menu_item.id,
-            item_name=menu_item.name,
-            size=size,
-            unit_price=unit_price,
-            quantity=quantity,
-            notes=line.get("notes"),
-        ))
+        order_items.append(
+            OrderItem(
+                menu_item_id=menu_item.id,
+                item_name=menu_item.name,
+                size=size,
+                unit_price=unit_price,
+                quantity=quantity,
+                notes=line.get("notes"),
+            )
+        )
 
     order = RestaurantOrder(
-        order_number=f"RM-{datetime.now(timezone.utc):%y%m%d}-{uuid4().hex[:6].upper()}",
+        order_number=f"RM-{datetime.now(UTC):%y%m%d}-{uuid4().hex[:6].upper()}",
         public_token=secrets.token_urlsafe(32),
         table_id=table.id,
         customer_name=payload.customer_name,
@@ -395,7 +414,7 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
         )
 
     order = RestaurantOrder(
-        order_number=f"RM-{datetime.now(timezone.utc):%y%m%d}-{uuid4().hex[:6].upper()}",
+        order_number=f"RM-{datetime.now(UTC):%y%m%d}-{uuid4().hex[:6].upper()}",
         public_token=secrets.token_urlsafe(32),
         table_id=table.id,
         customer_name=payload.customer_name,
@@ -436,25 +455,38 @@ def submit_order_feedback(
     payload: OrderFeedbackCreate,
     db: Session = Depends(get_db),
 ):
-    order = db.query(RestaurantOrder).filter(
-        RestaurantOrder.public_token == public_token
-    ).first()
+    order = (
+        db.query(RestaurantOrder)
+        .filter(RestaurantOrder.public_token == public_token)
+        .first()
+    )
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
     if order.payment_status != "PAID":
-        raise HTTPException(status_code=409, detail="Feedback is available after payment is confirmed.")
-    entry = db.query(RestaurantOrderFeedback).filter(
-        RestaurantOrderFeedback.order_id == order.id
-    ).first()
+        raise HTTPException(
+            status_code=409, detail="Feedback is available after payment is confirmed."
+        )
+    entry = (
+        db.query(RestaurantOrderFeedback)
+        .filter(RestaurantOrderFeedback.order_id == order.id)
+        .first()
+    )
     if entry is None:
-        entry = RestaurantOrderFeedback(order_id=order.id, rating=payload.rating, feedback=payload.feedback)
+        entry = RestaurantOrderFeedback(
+            order_id=order.id, rating=payload.rating, feedback=payload.feedback
+        )
         db.add(entry)
     else:
         entry.rating = payload.rating
         entry.feedback = payload.feedback
     db.commit()
     db.refresh(entry)
-    return {"id": entry.id, "rating": entry.rating, "feedback": entry.feedback, "created_at": entry.created_at}
+    return {
+        "id": entry.id,
+        "rating": entry.rating,
+        "feedback": entry.feedback,
+        "created_at": entry.created_at,
+    }
 
 
 @router.post(
@@ -481,7 +513,7 @@ def mark_eating_complete(public_token: str, db: Session = Depends(get_db)):
 
     # Idempotent: repeated requests do not change the original completion time.
     if order.eating_completed_at is None:
-        order.eating_completed_at = datetime.now(timezone.utc)
+        order.eating_completed_at = datetime.now(UTC)
         db.commit()
         db.refresh(order)
 
@@ -519,11 +551,19 @@ def select_order_payment(
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status != "SERVED" or order.eating_completed_at is None:
-        raise HTTPException(status_code=409, detail="Checkout is available after eating is complete.")
+        raise HTTPException(
+            status_code=409, detail="Checkout is available after eating is complete."
+        )
     if order.payment_status == "PAID":
         raise HTTPException(status_code=409, detail="This order has already been paid.")
 
-    if payload.method in {"JazzCash", "Easypaisa", "SadaPay", "NayaPay", "Other bank app"}:
+    if payload.method in {
+        "JazzCash",
+        "Easypaisa",
+        "SadaPay",
+        "NayaPay",
+        "Other bank app",
+    }:
         provider = payload.method
     else:
         provider = payload.provider
@@ -531,25 +571,32 @@ def select_order_payment(
     order.payment_method = payload.method
     order.payment_provider = provider
     order.payment_status = "PENDING"
-    order.payment_requested_at = datetime.now(timezone.utc)
+    order.payment_requested_at = datetime.now(UTC)
 
-    existing = db.query(ServiceRequest).filter(
-        ServiceRequest.order_id == order.id,
-        ServiceRequest.request_type == "BILL",
-        ServiceRequest.status != "COMPLETED",
-    ).first()
+    existing = (
+        db.query(ServiceRequest)
+        .filter(
+            ServiceRequest.order_id == order.id,
+            ServiceRequest.request_type == "BILL",
+            ServiceRequest.status != "COMPLETED",
+        )
+        .first()
+    )
 
     if existing is None:
-        db.add(ServiceRequest(
-            table_id=order.table_id,
-            order_id=order.id,
-            request_type="BILL",
-            message=(
-                f"Order {order.order_number}: customer selected {payload.method}"
-                f"{f' ({provider})' if provider else ''}. "
-                f"Amount: Rs. {order.total_amount}. Payment is awaiting staff confirmation."
-            ),
-        ))
+        db.add(
+            ServiceRequest(
+                table_id=order.table_id,
+                order_id=order.id,
+                request_type="BILL",
+                message=(
+                    f"Order {order.order_number}: customer selected {payload.method}"
+                    f"{f' ({provider})' if provider else ''}. "
+                    f"Amount: Rs. {order.total_amount}. "
+                    "Payment is awaiting staff confirmation."
+                ),
+            )
+        )
     else:
         existing.message = (
             f"Order {order.order_number}: customer selected {payload.method}"
@@ -587,16 +634,22 @@ def confirm_order_payment(
     if order.payment_status == "PAID":
         return order
     if order.payment_status != "PENDING":
-        raise HTTPException(status_code=409, detail="There is no pending payment to confirm.")
+        raise HTTPException(
+            status_code=409, detail="There is no pending payment to confirm."
+        )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     order.payment_status = "PAID"
     order.payment_confirmed_at = now
 
-    bill_request = db.query(ServiceRequest).filter(
-        ServiceRequest.order_id == order.id,
-        ServiceRequest.request_type == "BILL",
-    ).first()
+    bill_request = (
+        db.query(ServiceRequest)
+        .filter(
+            ServiceRequest.order_id == order.id,
+            ServiceRequest.request_type == "BILL",
+        )
+        .first()
+    )
     if bill_request is not None:
         bill_request.status = "COMPLETED"
         bill_request.completed_at = now
@@ -620,12 +673,14 @@ def confirm_order_payment(
 
     if unpaid_alert is not None:
         another_unpaid_order = db.scalar(
-            select(RestaurantOrder.id).where(
+            select(RestaurantOrder.id)
+            .where(
                 RestaurantOrder.table_id == order.table_id,
                 RestaurantOrder.status != "CANCELLED",
                 RestaurantOrder.payment_status != "PAID",
                 RestaurantOrder.created_at >= visit_started_at,
-            ).limit(1)
+            )
+            .limit(1)
         )
 
         if another_unpaid_order is None:
@@ -634,7 +689,10 @@ def confirm_order_payment(
             occupancy_service.mark_needs_cleaning(
                 db,
                 order.table_id,
-                description="Payment received after customer departure. Table requires cleaning.",
+                description=(
+                    "Payment received after customer departure. "
+                    "Table requires cleaning."
+                ),
                 timestamp=now,
             )
 
@@ -649,10 +707,7 @@ def get_kitchen_orders(
     db: Session = Depends(get_db),
     current_user: StaffUser = Depends(KITCHEN_USER),
 ):
-    orders_query = (
-        db.query(RestaurantOrder)
-        .options(joinedload(RestaurantOrder.items))
-    )
+    orders_query = db.query(RestaurantOrder).options(joinedload(RestaurantOrder.items))
 
     if include_history:
         orders_query = orders_query.filter(

@@ -31,7 +31,9 @@ class RestaurantTable(Base):
     )
 
     zone_coordinates: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
-    upload_zone_coordinates: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    upload_zone_coordinates: Mapped[dict | list | None] = mapped_column(
+        JSON, nullable=True
+    )
     upload_camera_source_id: Mapped[int | None] = mapped_column(
         ForeignKey("camera_sources.id", ondelete="SET NULL"), nullable=True
     )
@@ -54,7 +56,5 @@ class RestaurantTable(Base):
         back_populates="tables",
         foreign_keys=[camera_source_id],
     )
-    occupancy_events = relationship(
-        "OccupancyEvent", back_populates="restaurant_table"
-    )
+    occupancy_events = relationship("OccupancyEvent", back_populates="restaurant_table")
     alerts = relationship("Alert", back_populates="restaurant_table")

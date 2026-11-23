@@ -124,9 +124,7 @@ def test_video_upload_rejects_file_over_size_limit(monkeypatch):
         )
 
         assert response.status_code == 413
-        assert response.json()["detail"] == (
-            "Video exceeds the 100 MB upload limit"
-        )
+        assert response.json()["detail"] == ("Video exceeds the 100 MB upload limit")
     finally:
         delete_camera(camera_id)
 
