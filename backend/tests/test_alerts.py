@@ -6,6 +6,7 @@ from app.db.session import SessionLocal
 from app.main import app
 from app.models.alert import Alert
 from app.models.restaurant_table import RestaurantTable
+from tests.auth_helpers import create_test_user, delete_test_user
 
 client = TestClient(app)
 
@@ -13,6 +14,7 @@ client = TestClient(app)
 def test_list_alerts_and_filter_by_status():
     db = SessionLocal()
     table_id = None
+    user_id, headers = create_test_user("OWNER")
 
     try:
         table = RestaurantTable(
@@ -40,7 +42,7 @@ def test_list_alerts_and_filter_by_status():
         db.add_all([open_alert, resolved_alert])
         db.commit()
 
-        response = client.get("/api/v1/alerts")
+        response = client.get("/api/v1/alerts", headers=headers)
 
         assert response.status_code == 200
         alerts = response.json()
@@ -57,6 +59,7 @@ def test_list_alerts_and_filter_by_status():
         open_response = client.get(
             "/api/v1/alerts",
             params={"status": "OPEN"},
+            headers=headers,
         )
 
         assert open_response.status_code == 200
@@ -72,6 +75,7 @@ def test_list_alerts_and_filter_by_status():
         resolved_response = client.get(
             "/api/v1/alerts",
             params={"status": "RESOLVED"},
+            headers=headers,
         )
 
         assert resolved_response.status_code == 200
@@ -93,12 +97,19 @@ def test_list_alerts_and_filter_by_status():
             db.commit()
 
         db.close()
+        delete_test_user(user_id)
 
 
 def test_list_alerts_rejects_invalid_status():
-    response = client.get(
-        "/api/v1/alerts",
-        params={"status": "INVALID"},
-    )
+    user_id, headers = create_test_user("OWNER")
 
-    assert response.status_code == 422
+    try:
+        response = client.get(
+            "/api/v1/alerts",
+            params={"status": "INVALID"},
+            headers=headers,
+        )
+
+        assert response.status_code == 422
+    finally:
+        delete_test_user(user_id)

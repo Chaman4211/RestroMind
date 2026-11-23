@@ -46,6 +46,8 @@ class OccupancyStateMachine:
         table_id: int,
         occupied: bool,
         timestamp: datetime | None = None,
+        requires_cleaning: bool = True,
+        allow_exit_transition: bool = True,
     ):
         now = timestamp or datetime.now(UTC)
 
@@ -98,8 +100,19 @@ class OccupancyStateMachine:
                     now - state.absence_started_at
                 ).total_seconds()
 
-                if elapsed >= self.config.exit_threshold_seconds:
-                    state.status = TableStatus.NEEDS_CLEANING
+                if (
+                    elapsed >= self.config.exit_threshold_seconds
+                    and allow_exit_transition
+                ):
+                    state.status = (
+                        TableStatus.NEEDS_CLEANING
+                        if requires_cleaning
+                        else TableStatus.FREE
+                    )
+                    state.occupied_since = None
+                    state.service_reminder_sent = False
+                    state.absence_started_at = None
+                    state.last_detected_at = None
 
                     events.append({
                         "event_type": "STATUS_CHANGED",
@@ -133,6 +146,42 @@ class OccupancyStateMachine:
             "events": events,
         }
 
+    def mark_needs_cleaning(
+        self,
+        table_id: int,
+        timestamp: datetime | None = None,
+    ):
+        now = timestamp or datetime.now(UTC)
+
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("Timestamp must be timezone-aware")
+
+        state = self.tables.get(table_id)
+
+        if state is None:
+            raise ValueError("Table is not registered")
+
+        if state.status not in (
+            TableStatus.FREE,
+            TableStatus.OCCUPIED,
+        ):
+            raise ValueError("Table already needs cleaning")
+
+        state.status = TableStatus.NEEDS_CLEANING
+        state.last_update_at = now
+        state.occupied_since = None
+        state.last_detected_at = None
+        state.absence_started_at = None
+        state.presence_started_at = None
+        state.service_reminder_sent = False
+
+        return {
+            "table_id": table_id,
+            "status": state.status.value,
+            "event_type": "CLEANING_REQUIRED",
+            "timestamp": now,
+        }
+
     def confirm_cleaning(self, table_id: int, timestamp: datetime | None = None):
         now = timestamp or datetime.now(UTC)
 
@@ -148,6 +197,7 @@ class OccupancyStateMachine:
             raise ValueError("Table does not need cleaning")
 
         state.status = TableStatus.FREE
+        state.last_update_at = now
         state.occupied_since = None
         state.last_detected_at = None
         state.absence_started_at = None

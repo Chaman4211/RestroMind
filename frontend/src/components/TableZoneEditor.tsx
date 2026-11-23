@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { MouseEvent, RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check, Eraser, RotateCcw, Save } from 'lucide-react'
+import { Check, Eraser, RotateCcw, Save, Trash2 } from 'lucide-react'
 import {
   updateRestaurantTable,
   type RestaurantTable,
@@ -15,11 +15,12 @@ type Point = {
 }
 
 type Props = {
-  videoRef: RefObject<HTMLVideoElement | null>
+  videoRef: RefObject<HTMLVideoElement | HTMLImageElement | null>
   previewElement: HTMLDivElement | null
   tables: RestaurantTable[]
   cameraSourceId: number | null
   cameraActive: boolean
+  zoneMode?: 'camera' | 'upload'
 }
 
 function readZonePoints(zone: unknown): Point[] {
@@ -52,6 +53,7 @@ function TableZoneEditor({
   tables,
   cameraSourceId,
   cameraActive,
+  zoneMode = 'camera',
 }: Props) {
   const queryClient = useQueryClient()
   const [selectedTableId, setSelectedTableId] = useState('')
@@ -62,12 +64,14 @@ function TableZoneEditor({
 
   const availableTables = useMemo(
     () =>
-      tables.filter(
-        (table) =>
-          table.camera_source_id === null ||
-          table.camera_source_id === cameraSourceId,
-      ),
-    [tables, cameraSourceId],
+      zoneMode === 'upload'
+        ? tables
+        : tables.filter(
+            (table) =>
+              table.camera_source_id === null ||
+              table.camera_source_id === cameraSourceId,
+          ),
+    [tables, cameraSourceId, zoneMode],
   )
 
   const effectiveSelectedTableId = availableTables.some(
@@ -82,53 +86,79 @@ function TableZoneEditor({
     (table) => String(table.id) === effectiveSelectedTableId,
   )
 
+  const selectedZone =
+    zoneMode === 'upload'
+      ? selectedTable?.upload_zone_coordinates
+      : selectedTable?.zone_coordinates
+
+  const hasSavedZone = readZonePoints(selectedZone).length >= 3
+
   useEffect(() => {
-    // Load the saved zone when the selected table changes.
+    // Load the saved zone when the selected table or zone mode changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPoints(readZonePoints(selectedTable?.zone_coordinates))
+    setPoints(readZonePoints(selectedZone))
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDrawing(false)
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessage('')
-  }, [selectedTable?.id, selectedTable?.zone_coordinates])
+  }, [selectedTable?.id, selectedZone])
 
   useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
+    const media = videoRef.current
+    if (!media) return
 
     const updateSize = () => {
-      if (video.videoWidth > 0 && video.videoHeight > 0) {
-        setVideoSize({
-          width: video.videoWidth,
-          height: video.videoHeight,
-        })
+      const width =
+        media instanceof HTMLVideoElement ? media.videoWidth : media.naturalWidth
+      const height =
+        media instanceof HTMLVideoElement ? media.videoHeight : media.naturalHeight
+
+      if (width > 0 && height > 0) {
+        setVideoSize({ width, height })
       }
     }
 
-    video.addEventListener('loadedmetadata', updateSize)
-    video.addEventListener('loadeddata', updateSize)
+    if (media instanceof HTMLVideoElement) {
+      media.addEventListener('loadedmetadata', updateSize)
+      media.addEventListener('loadeddata', updateSize)
+    } else {
+      media.addEventListener('load', updateSize)
+    }
+
     updateSize()
 
     return () => {
-      video.removeEventListener('loadedmetadata', updateSize)
-      video.removeEventListener('loadeddata', updateSize)
+      media.removeEventListener('loadedmetadata', updateSize)
+      media.removeEventListener('loadeddata', updateSize)
+      media.removeEventListener('load', updateSize)
     }
   }, [videoRef, cameraActive])
 
   const saveMutation = useMutation({
     mutationFn: () => {
-      if (!selectedTable || cameraSourceId === null) {
-        throw new Error('Select a table and an active camera source first.')
+      if (!selectedTable) {
+        throw new Error('Select a table first.')
+      }
+
+      if (zoneMode === 'camera' && cameraSourceId === null) {
+        throw new Error('Select an active camera source first.')
       }
 
       if (points.length < 3) {
         throw new Error('A table zone needs at least three points.')
       }
 
-      return updateRestaurantTable(selectedTable.id, {
-        zone_coordinates: points.map((point) => [point.x, point.y]),
-        camera_source_id: cameraSourceId,
-      })
+      const coordinates = points.map((point) => [point.x, point.y])
+
+      return zoneMode === 'upload'
+        ? updateRestaurantTable(selectedTable.id, {
+            upload_zone_coordinates: coordinates,
+            upload_camera_source_id: cameraSourceId,
+          })
+        : updateRestaurantTable(selectedTable.id, {
+            zone_coordinates: coordinates,
+            camera_source_id: cameraSourceId,
+          })
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['restaurant-tables'] })
@@ -138,6 +168,34 @@ function TableZoneEditor({
     onError: (error) => {
       setMessage(
         error instanceof Error ? error.message : 'Could not save the table zone.',
+      )
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedTable) {
+        throw new Error('Select a table first.')
+      }
+
+      return zoneMode === 'upload'
+        ? updateRestaurantTable(selectedTable.id, {
+            upload_zone_coordinates: null,
+            upload_camera_source_id: null,
+          })
+        : updateRestaurantTable(selectedTable.id, {
+            zone_coordinates: null,
+          })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['restaurant-tables'] })
+      setPoints([])
+      setDrawing(false)
+      setMessage('Saved table zone deleted. The table was kept.')
+    },
+    onError: (error) => {
+      setMessage(
+        error instanceof Error ? error.message : 'Could not delete the table zone.',
       )
     },
   })
@@ -191,41 +249,78 @@ function TableZoneEditor({
             viewBox={`0 0 ${videoSize.width} ${videoSize.height}`}
             preserveAspectRatio="xMidYMid meet"
             onClick={handleOverlayClick}
-            aria-label="Table zone drawing overlay"
+            aria-label="All saved table zones and zone drawing overlay"
           >
-            {points.length >= 3 && (
-              <polygon
-                points={points
-                  .map(
-                    (point) =>
-                      `${point.x * videoSize.width},${point.y * videoSize.height}`,
-                  )
-                  .join(' ')}
-                className="zone-polygon"
-              />
-            )}
+            {availableTables.map((table) => {
+              const isSelected = table.id === selectedTable?.id
+              const savedPoints = readZonePoints(
+                zoneMode === 'upload'
+                  ? table.upload_zone_coordinates
+                  : table.zone_coordinates,
+              )
+              const zonePoints =
+                isSelected && (!drawing || points.length >= 3)
+                  ? points
+                  : savedPoints
 
-            {points.length > 0 && (
-              <polyline
-                points={points
-                  .map(
-                    (point) =>
-                      `${point.x * videoSize.width},${point.y * videoSize.height}`,
-                  )
-                  .join(' ')}
-                className="zone-line"
-              />
-            )}
+              if (zonePoints.length < 3) return null
 
-            {points.map((point, index) => (
-              <circle
-                key={`${index}-${point.x}-${point.y}`}
-                cx={point.x * videoSize.width}
-                cy={point.y * videoSize.height}
-                r={Math.max(5, videoSize.width / 150)}
-                className="zone-point"
-              />
-            ))}
+              const polygonPoints = zonePoints
+                .map(
+                  (point) =>
+                    `${point.x * videoSize.width},${point.y * videoSize.height}`,
+                )
+                .join(' ')
+
+              const labelPoint = zonePoints[0]
+
+              return (
+                <g key={table.id}>
+                  <polygon
+                    points={polygonPoints}
+                    className={
+                      isSelected
+                        ? 'zone-polygon zone-polygon-selected'
+                        : 'zone-polygon zone-polygon-other'
+                    }
+                  />
+                  <text
+                    x={labelPoint.x * videoSize.width}
+                    y={labelPoint.y * videoSize.height - 10}
+                    className={
+                      isSelected
+                        ? 'zone-label zone-label-selected'
+                        : 'zone-label'
+                    }
+                  >
+                    {table.table_number}
+                  </text>
+                </g>
+              )
+            })}
+
+            {drawing && points.length > 0 && (
+              <>
+                <polyline
+                  points={points
+                    .map(
+                      (point) =>
+                        `${point.x * videoSize.width},${point.y * videoSize.height}`,
+                    )
+                    .join(' ')}
+                  className="zone-line"
+                />
+                {points.map((point, index) => (
+                  <circle
+                    key={`${index}-${point.x}-${point.y}`}
+                    cx={point.x * videoSize.width}
+                    cy={point.y * videoSize.height}
+                    r={Math.max(5, videoSize.width / 150)}
+                    className="zone-point"
+                  />
+                ))}
+              </>
+            )}
           </svg>,
           previewElement,
         )
@@ -305,6 +400,22 @@ function TableZoneEditor({
             </>
           )}
 
+          {!drawing && hasSavedZone && (
+            <button
+              type="button"
+              className="zone-delete-button"
+              onClick={() => {
+                if (window.confirm(`Delete the saved zone for ${selectedTable?.table_number}?`)) {
+                  deleteMutation.mutate()
+                }
+              }}
+              disabled={deleteMutation.isPending || saveMutation.isPending}
+            >
+              <Trash2 size={14} />
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete zone'}
+            </button>
+          )}
+
           {!drawing && (
             <button
               type="button"
@@ -313,7 +424,7 @@ function TableZoneEditor({
               disabled={
                 points.length < 3 ||
                 !selectedTable ||
-                cameraSourceId === null ||
+                (zoneMode === 'camera' && cameraSourceId === null) ||
                 saveMutation.isPending
               }
             >
@@ -328,7 +439,7 @@ function TableZoneEditor({
             ? 'Load a live camera or video preview before drawing table zones.'
             : drawing
               ? 'Click at least three points around the table. Finish drawing when ready.'
-              : 'The green outline shows the selected table zone. You can redraw it at any time.'}
+              : "All saved table zones are visible. The highlighted outline is selected; redraw or delete only this zone."}
         </div>
 
         {message && (

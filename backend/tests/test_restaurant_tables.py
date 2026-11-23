@@ -9,6 +9,7 @@ from app.models.alert import Alert
 from app.models.camera_source import CameraSource
 from app.models.occupancy_event import OccupancyEvent
 from app.models.restaurant_table import RestaurantTable
+from tests.auth_helpers import create_test_user, delete_test_user
 
 client = TestClient(app)
 
@@ -20,6 +21,7 @@ def test_restaurant_table_crud():
 
     camera_id = None
     table_id = None
+    user_id, headers = create_test_user("OWNER")
 
     try:
         camera_response = client.post(
@@ -45,6 +47,7 @@ def test_restaurant_table_crud():
         create_response = client.post(
             "/api/v1/restaurant-tables",
             json=payload,
+            headers=headers,
         )
 
         assert create_response.status_code == 201
@@ -58,6 +61,7 @@ def test_restaurant_table_crud():
         duplicate_response = client.post(
             "/api/v1/restaurant-tables",
             json=payload,
+            headers=headers,
         )
         assert duplicate_response.status_code == 409
 
@@ -68,10 +72,11 @@ def test_restaurant_table_crud():
                 "name": "Invalid Camera Table",
                 "camera_source_id": 999999999,
             },
+            headers=headers,
         )
         assert missing_camera_response.status_code == 404
 
-        list_response = client.get("/api/v1/restaurant-tables")
+        list_response = client.get("/api/v1/restaurant-tables", headers=headers)
         assert list_response.status_code == 200
         assert any(
             table["id"] == table_id
@@ -79,7 +84,8 @@ def test_restaurant_table_crud():
         )
 
         get_response = client.get(
-            f"/api/v1/restaurant-tables/{table_id}"
+            f"/api/v1/restaurant-tables/{table_id}",
+            headers=headers,
         )
         assert get_response.status_code == 200
 
@@ -89,6 +95,7 @@ def test_restaurant_table_crud():
                 "name": "Updated Test Table",
                 "camera_source_id": None,
             },
+            headers=headers,
         )
 
         assert update_response.status_code == 200
@@ -96,13 +103,15 @@ def test_restaurant_table_crud():
         assert update_response.json()["camera_source_id"] is None
 
         delete_response = client.delete(
-            f"/api/v1/restaurant-tables/{table_id}"
+            f"/api/v1/restaurant-tables/{table_id}",
+            headers=headers,
         )
         assert delete_response.status_code == 204
         table_id = None
 
         missing_table_response = client.get(
-            f"/api/v1/restaurant-tables/{created_table['id']}"
+            f"/api/v1/restaurant-tables/{created_table['id']}",
+            headers=headers,
         )
         assert missing_table_response.status_code == 404
 
@@ -125,11 +134,13 @@ def test_restaurant_table_crud():
             db.commit()
         finally:
             db.close()
+        delete_test_user(user_id)
 
 
 def test_table_with_history_cannot_be_deleted():
     unique_id = uuid4().hex[:8]
     table_id = None
+    user_id, headers = create_test_user("OWNER")
 
     db = SessionLocal()
 
@@ -154,7 +165,8 @@ def test_table_with_history_cannot_be_deleted():
         db.commit()
 
         response = client.delete(
-            f"/api/v1/restaurant-tables/{table_id}"
+            f"/api/v1/restaurant-tables/{table_id}",
+            headers=headers,
         )
 
         assert response.status_code == 409

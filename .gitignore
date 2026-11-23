@@ -38,3 +38,24 @@ outputs/
 .coverage
 .coverage.*
 htmlcov/
+
+# Local backup and temporary files
+*.bak
+*.bak-*
+*.bak_*
+*.backup
+*.backup_*
+*.backup-*
+*.before-*
+*.workflow.bak
+*.size-backup
+*.json-price-backup
+*.visit-scope.bak
+
+# Local environment and generated files
+*.swp
+*.swo
+*~
+
+# Local backup files
+*-backup*
