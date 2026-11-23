@@ -22,6 +22,22 @@ export function clearAccessToken(): void {
   sessionStorage.removeItem(TOKEN_KEY)
 }
 
+export async function createDemoSession(): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/demo-session`, {
+    method: 'POST',
+  })
+
+  const body = await response.json()
+
+  if (!response.ok) {
+    throw new Error(body.detail || 'Could not open the demo workspace')
+  }
+
+  const result = body as AuthResponse
+  saveAccessToken(result.access_token)
+  return result
+}
+
 export async function login(
   email: string,
   password: string,

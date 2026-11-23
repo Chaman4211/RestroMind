@@ -5,6 +5,7 @@ import pytest
 from app.services.occupancy.state_machine import (
     OccupancyConfig,
     OccupancyStateMachine,
+    TableStatus,
 )
 
 START = datetime(2026, 11, 13, 10, 0, tzinfo=UTC)
@@ -60,7 +61,7 @@ def test_short_absence_does_not_change_occupied_status():
     assert result["status"] == "OCCUPIED"
 
 
-def test_table_needs_cleaning_after_exit_threshold():
+def test_table_becomes_free_after_confirmed_absence():
     machine = create_machine()
 
     machine.update(1, True, START)
@@ -74,6 +75,7 @@ def test_table_needs_cleaning_after_exit_threshold():
     )
 
     assert result["status"] == "NEEDS_CLEANING"
+    assert result["events"][-1]["status"] == "NEEDS_CLEANING"
 
 
 def test_presence_resets_absence_timer():
@@ -97,6 +99,8 @@ def test_cleaning_confirmation_returns_table_to_free():
     machine.update(1, True, START + timedelta(seconds=5))
     machine.update(1, False, START + timedelta(seconds=20))
     machine.update(1, False, START + timedelta(seconds=30))
+
+    machine.tables[1].status = TableStatus.NEEDS_CLEANING
 
     result = machine.confirm_cleaning(
         1, START + timedelta(seconds=40)

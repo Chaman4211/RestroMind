@@ -23,4 +23,8 @@ class CameraSource(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    tables = relationship("RestaurantTable", back_populates="camera_source")
+    tables = relationship(
+        "RestaurantTable",
+        back_populates="camera_source",
+        foreign_keys="RestaurantTable.camera_source_id",
+    )

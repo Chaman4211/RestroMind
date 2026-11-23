@@ -1,3 +1,4 @@
+import cv2
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import SecretStr
 from sqlalchemy import select
@@ -266,3 +267,44 @@ def get_rtsp_camera_status(
         }
 
     return result
+
+@router.get("/{camera_source_id}/rtsp/frame")
+def get_rtsp_camera_frame(
+    camera_source_id: int,
+    db: Session = Depends(get_db),
+):
+    camera = db.get(CameraSource, camera_source_id)
+
+    if camera is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Camera source not found",
+        )
+
+    if camera.source_type != "RTSP":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This camera is not an RTSP source",
+        )
+
+    frame = rtsp_stream_manager.get_latest_frame(camera_source_id)
+
+    if frame is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No RTSP frame is available yet.",
+        )
+
+    success, encoded = cv2.imencode(".jpg", frame)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not encode the camera frame.",
+        )
+
+    return Response(
+        content=encoded.tobytes(),
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store"},
+    )

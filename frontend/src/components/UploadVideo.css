@@ -185,3 +185,154 @@
     width: 100%;
   }
 }
+
+.upload-detection-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.upload-person-box {
+  fill: rgba(34, 197, 94, 0.08);
+  stroke: #22c55e;
+  stroke-width: 3;
+}
+
+.upload-person-label,
+.upload-zone-label {
+  fill: #fff;
+  stroke: #101a14;
+  stroke-width: 3px;
+  paint-order: stroke;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.upload-preview-indicator {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 6;
+  padding: 7px 10px;
+  border-radius: 5px;
+  background: rgba(20, 40, 27, 0.88);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.upload-live-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.upload-live-metrics > div,
+.upload-table-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 13px;
+  border: 1px solid #e8ede6;
+  border-radius: 8px;
+  color: #718075;
+  font-size: 10px;
+}
+
+.upload-live-metrics strong {
+  color: #315b40;
+  font-size: 18px;
+}
+
+.upload-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.upload-progress-heading,
+.upload-table-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #647568;
+  font-size: 11px;
+}
+
+.upload-progress-heading strong {
+  color: #315b40;
+}
+
+.upload-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #e8eee7;
+}
+
+.upload-progress-track > div {
+  height: 100%;
+  border-radius: inherit;
+  background: #4d8659;
+  transition: width 150ms linear;
+}
+
+.upload-table-results {
+  display: grid;
+  gap: 10px;
+}
+
+.upload-table-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.upload-table-card-top strong {
+  color: #35483a;
+  font-size: 13px;
+}
+
+.upload-table-card-top span {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.upload-table-card > span {
+  color: #53675a;
+  font-size: 11px;
+}
+
+.upload-table-card small {
+  color: #89938b;
+  font-size: 10px;
+}
+
+.upload-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.upload-summary-grid span {
+  color: #718075;
+}
+
+.upload-summary-grid strong {
+  color: #315b40;
+}
+
+@media (max-width: 600px) {
+  .upload-live-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}

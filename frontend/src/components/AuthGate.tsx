@@ -1,36 +1,30 @@
-import { AuthContext } from './authContext'
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { getCurrentUser, login, logout as clearSession } from '../services/auth'
-import type { StaffUser } from '../services/api'
+import { useEffect, useState, type ReactNode } from 'react'
+import { createDemoSession } from '../services/auth'
 import './AuthGate.css'
-
 
 type AuthGateProps = {
   children: ReactNode
 }
 
 export default function AuthGate({ children }: AuthGateProps) {
-  const queryClient = useQueryClient()
-  const [user, setUser] = useState<StaffUser | null>(null)
-  const [checkingSession, setCheckingSession] = useState(true)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     let active = true
 
-    getCurrentUser()
-      .then((currentUser) => {
-        if (active) setUser(currentUser)
+    createDemoSession()
+      .then(() => {
+        if (active) setReady(true)
       })
-      .catch(() => {
-        if (active) setUser(null)
-      })
-      .finally(() => {
-        if (active) setCheckingSession(false)
+      .catch((sessionError) => {
+        if (active) {
+          setError(
+            sessionError instanceof Error
+              ? sessionError.message
+              : 'Could not open the demo workspace.',
+          )
+        }
       })
 
     return () => {
@@ -38,81 +32,25 @@ export default function AuthGate({ children }: AuthGateProps) {
     }
   }, [])
 
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-    setSubmitting(true)
-
-    try {
-      const result = await login(email.trim(), password)
-      setUser(result.user)
-      setPassword('')
-    } catch (loginError) {
-      setError(loginError instanceof Error ? loginError.message : 'Login failed. Please try again.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  function handleLogout() {
-    clearSession()
-    queryClient.clear()
-    setUser(null)
-    setPassword('')
-  }
-
-  if (checkingSession) {
-    return <div className="auth-loading">Loading RestroMind...</div>
-  }
-
-  if (!user) {
+  if (error) {
     return (
       <main className="auth-page">
         <section className="auth-card">
           <div className="auth-brand-mark">RM</div>
           <p className="auth-eyebrow">RESTAURANT INTELLIGENCE</p>
-          <h1>Welcome back</h1>
-          <p className="auth-description">Sign in to access your RestroMind workspace.</p>
-
-          <form className="auth-form" onSubmit={handleLogin}>
-            <label htmlFor="login-email">Email address</label>
-            <input
-              id="login-email"
-              type="email"
-              autoComplete="username"
-              placeholder="you@restaurant.com"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-
-            <label htmlFor="login-password">Password</label>
-            <input
-              id="login-password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-
-            {error && <p className="auth-error" role="alert">{error}</p>}
-
-            <button type="submit" disabled={submitting}>
-              {submitting ? 'Signing in...' : 'Sign in'}
-            </button>
-          </form>
-
-          <p className="auth-footer">Secure access for your restaurant team</p>
+          <h1>Demo unavailable</h1>
+          <p className="auth-description">{error}</p>
+          <button type="button" onClick={() => window.location.reload()}>
+            Try again
+          </button>
         </section>
       </main>
     )
   }
 
-  return (
-    <AuthContext.Provider value={{ user, logout: handleLogout }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  if (!ready) {
+    return <div className="auth-loading">Loading RestroMind...</div>
+  }
+
+  return <>{children}</>
 }

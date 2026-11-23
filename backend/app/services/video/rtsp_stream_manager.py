@@ -20,6 +20,7 @@ class RTSPWorker:
     status: str = "STARTING"
     error: str | None = None
     processed_frames: int = 0
+    latest_frame: object | None = None
 
 
 class RTSPStreamManager:
@@ -92,6 +93,16 @@ class RTSPStreamManager:
                 "error": worker.error,
             }
 
+    def get_latest_frame(self, camera_source_id: int):
+        with self._lock:
+            worker = self._workers.get(camera_source_id)
+
+            if worker is None or worker.latest_frame is None:
+                return None
+
+            frame = worker.latest_frame
+            return frame.copy() if hasattr(frame, "copy") else frame
+
     def _run(self, worker: RTSPWorker, rtsp_url: str) -> None:
         capture = None
         db = None
@@ -141,6 +152,9 @@ class RTSPStreamManager:
 
                     with self._lock:
                         worker.processed_frames += 1
+                        worker.latest_frame = (
+                            frame.copy() if hasattr(frame, "copy") else frame
+                        )
 
                 frame_index += 1
 

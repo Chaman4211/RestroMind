@@ -1,8 +1,10 @@
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -17,7 +19,7 @@ ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 
 video_processor = VideoProcessor(
     pipeline=vision_pipeline,
-    frame_interval=5,
+    frame_interval=3,
 )
 
 
@@ -106,3 +108,106 @@ def process_uploaded_video(
     finally:
         camera_sessions.release(camera_source_id)
         file.file.close()
+
+
+@router.post("/{camera_source_id}/process-video-stream")
+def process_uploaded_video_stream(
+    camera_source_id: int,
+    file: Annotated[UploadFile, File()],
+    db: Session = Depends(get_db),
+):
+    camera = db.get(CameraSource, camera_source_id)
+
+    if camera is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Camera source not found",
+        )
+
+    if not camera.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Camera source is inactive",
+        )
+
+    if camera.source_type != "UPLOAD":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This camera source does not support video uploads",
+        )
+
+    extension = Path(file.filename or "").suffix.lower()
+
+    if extension not in ALLOWED_VIDEO_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Unsupported video format",
+        )
+
+    if not camera_sessions.acquire(camera_source_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This camera is already being processed",
+        )
+
+    temp_dir = TemporaryDirectory(prefix="restromind-video-stream-")
+    video_path = Path(temp_dir.name) / f"upload{extension}"
+    total_size = 0
+
+    try:
+        with video_path.open("wb") as destination:
+            while chunk := file.file.read(1024 * 1024):
+                total_size += len(chunk)
+
+                if total_size > MAX_VIDEO_SIZE_BYTES:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                        detail="Video exceeds the 100 MB upload limit",
+                    )
+
+                destination.write(chunk)
+
+        if total_size == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded video is empty",
+            )
+
+    except Exception:
+        temp_dir.cleanup()
+        camera_sessions.release(camera_source_id)
+        file.file.close()
+        raise
+
+    def generate_events():
+        try:
+            for event in video_processor.iter_video_frames(
+                db=db,
+                camera_source_id=camera_source_id,
+                video_path=video_path,
+            ):
+                yield json.dumps(event, default=str) + "\\n"
+
+        except ValueError as error:
+            yield json.dumps({
+                "type": "error",
+                "message": str(error),
+            }) + "\\n"
+
+        except Exception:
+            yield json.dumps({
+                "type": "error",
+                "message": "Video processing failed. Check the backend logs.",
+            }) + "\\n"
+            raise
+
+        finally:
+            camera_sessions.release(camera_source_id)
+            temp_dir.cleanup()
+            file.file.close()
+
+    return StreamingResponse(
+        generate_events(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache"},
+    )

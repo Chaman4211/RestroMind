@@ -532,3 +532,28 @@
   background: #edf4ec;
   color: #315b40;
 }
+
+.detection-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.detection-box {
+  fill: none;
+  stroke: #35e878;
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.detection-label {
+  fill: #ffffff;
+  stroke: #14251d;
+  stroke-width: 3px;
+  paint-order: stroke;
+  font-size: 16px;
+  font-weight: 700;
+}

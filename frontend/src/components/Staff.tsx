@@ -462,38 +462,27 @@ export default function Staff() {
                   <span className={`staff-active-status ${member.is_active ? 'active' : 'inactive'}`}>
                     {member.is_active ? 'Active' : 'Inactive'}
                   </span>
-                  <button
-                    className="staff-icon-button"
-                    type="button"
-                    onClick={() => startEditing(member)}
-                    aria-label={`Edit ${member.name}`}
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  <button
-                    className="staff-icon-button staff-delete-button"
-                    type="button"
-                    onClick={() => removeMember(member)}
-                    disabled={deleteMutation.isPending}
-                    aria-label={`Remove ${member.name}`}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-
-                <div className="staff-status-control">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateMutation.mutate({
-                        id: member.id,
-                        updates: { is_active: !member.is_active },
-                      })
-                    }
-                    disabled={updateMutation.isPending}
-                  >
-                    {member.is_active ? 'Deactivate' : 'Activate'} profile
-                  </button>
+                  {member.role !== 'OWNER' && (
+                    <>
+                      <button
+                        className="staff-icon-button"
+                        type="button"
+                        onClick={() => startEditing(member)}
+                        aria-label={`Edit ${member.name}`}
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        className="staff-icon-button staff-delete-button"
+                        type="button"
+                        onClick={() => removeMember(member)}
+                        disabled={deleteMutation.isPending}
+                        aria-label={`Permanently remove ${member.name}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </>
+                  )}
                 </div>
               </article>
             )

@@ -1,9 +1,15 @@
+
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func, text
+from sqlalchemy import DateTime, ForeignKey, String, Text, event, func, text, select
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import inspect
 
 from app.db.base import Base
+from app.services.staff_assignment import (
+    staff_role_for_alert,
+    find_least_loaded_staff_id,
+)
 
 
 class Alert(Base):
@@ -45,4 +51,23 @@ class Alert(Base):
     restaurant_table = relationship("RestaurantTable", back_populates="alerts")
     assigned_staff = relationship(
         "StaffUser", back_populates="assigned_alerts"
+    )
+
+
+@event.listens_for(Alert, "before_insert")
+def assign_alert_to_relevant_staff(mapper, connection, target):
+    if target.assigned_staff_id is not None:
+        return
+
+    # Respect an explicitly supplied None (for example, an intentionally
+    # unassigned task). Auto-assign only when the field was left unset.
+    if inspect(target).attrs.assigned_staff_id.history.has_changes():
+        return
+
+    role = staff_role_for_alert(target.alert_type)
+    if role is None:
+        return
+
+    target.assigned_staff_id = find_least_loaded_staff_id(
+        connection, role
     )

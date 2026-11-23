@@ -1,3 +1,4 @@
+
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,14 +15,14 @@ from app.schemas.alert import AlertAssignmentUpdate, AlertResponse
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
 
-MANAGEMENT_ROLES = (
-    "OWNER",
-    "MANAGER",
-    "ASSISTANT_MANAGER",
-    "SUPERVISOR",
-)
-
+MANAGEMENT_ROLES = ("OWNER", "MANAGER", "ASSISTANT_MANAGER", "SUPERVISOR")
 MANAGEMENT_USER = require_roles(*MANAGEMENT_ROLES)
+
+ALERT_ROLE = {
+    "CLEANING_REQUIRED": "CLEANING_STAFF",
+    "UNPAID_BILL": "CASHIER",
+    "SERVICE_REMINDER": "WAITER",
+}
 
 
 def alert_response_query():
@@ -40,7 +41,6 @@ def alert_response_query():
 
 def serialize_alert(result):
     alert, table_number, table_name, staff_name, staff_role = result
-
     return {
         "id": alert.id,
         "table_id": alert.table_id,
@@ -67,15 +67,9 @@ def list_alerts(
         Alert.created_at.desc(), Alert.id.desc()
     )
 
-    if current_user.role == "CLEANING_STAFF":
+    if current_user.role not in MANAGEMENT_ROLES:
         statement = statement.where(
-            Alert.assigned_staff_id == current_user.id,
-            Alert.alert_type == "CLEANING_REQUIRED",
-        )
-    elif current_user.role not in MANAGEMENT_ROLES:
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to view alerts",
+            Alert.assigned_staff_id == current_user.id
         )
 
     if status is not None:
@@ -100,10 +94,17 @@ def update_alert_assignment(
             detail="Alert not found",
         )
 
-    if alert.status != "OPEN" or alert.alert_type != "CLEANING_REQUIRED":
+    if alert.status != "OPEN":
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT,
-            detail="Only open cleaning tasks can be assigned",
+            detail="Only open alerts can be assigned",
+        )
+
+    expected_role = ALERT_ROLE.get(alert.alert_type)
+    if expected_role is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="This alert type does not support staff assignment",
         )
 
     if payload.assigned_staff_id is not None:
@@ -118,21 +119,19 @@ def update_alert_assignment(
         if not staff_member.is_active:
             raise HTTPException(
                 status_code=http_status.HTTP_409_CONFLICT,
-                detail="Cannot assign a task to an inactive staff member",
+                detail="Cannot assign an alert to an inactive staff member",
             )
 
-        if staff_member.role != "CLEANING_STAFF":
+        if staff_member.role != expected_role:
             raise HTTPException(
                 status_code=http_status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Cleaning tasks can only be assigned to cleaning staff",
+                detail=f"This alert must be assigned to {expected_role}",
             )
 
     alert.assigned_staff_id = payload.assigned_staff_id
     db.commit()
-    db.refresh(alert)
 
     result = db.execute(
         alert_response_query().where(Alert.id == alert_id)
     ).one()
-
     return serialize_alert(result)

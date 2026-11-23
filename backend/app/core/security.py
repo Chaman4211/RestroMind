@@ -39,3 +39,19 @@ def decode_access_token(token: str) -> dict:
         settings.jwt_secret_key,
         algorithms=[settings.jwt_algorithm],
     )
+
+
+
+def create_notification_token(subject: str) -> str:
+    """Create a short-lived token exclusively for notification WebSockets."""
+    expires_at = datetime.now(UTC) + timedelta(seconds=120)
+    payload = {
+        "sub": subject,
+        "purpose": "staff_notifications",
+        "exp": expires_at,
+    }
+    return jwt.encode(
+        payload,
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )

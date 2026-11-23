@@ -55,6 +55,9 @@ def get_table_polygon(zone_coordinates):
 
 
 def match_people_to_tables(people, tables, frame_width, frame_height):
+    if frame_width <= 0 or frame_height <= 0:
+        raise ValueError("Frame dimensions must be positive")
+
     """
     Assign tracked people to configured table zones.
 
@@ -80,21 +83,41 @@ def match_people_to_tables(people, tables, frame_width, frame_height):
     }
 
     for person in people:
-        footpoint = get_person_footpoint(person["bbox"])
+        x1, y1, x2, y2 = person["bbox"]
+        center_x = (x1 + x2) / 2
+        box_height = y2 - y1
 
-        normalized_point = normalize_point(
-            footpoint,
-            frame_width,
-            frame_height,
-        )
-
-        matching_tables = [
-            table_id
-            for table_id, polygon in table_polygons.items()
-            if point_in_polygon(normalized_point, polygon)
+        # Seated customers may have their feet outside the table zone.
+        # Check the feet, lower body, and centre of the detected person.
+        sample_points = [
+            (center_x, y2),
+            (center_x, y1 + box_height * 0.75),
+            (center_x, y1 + box_height * 0.50),
         ]
 
-        if matching_tables:
-            assignments[matching_tables[0]].append(person["track_id"])
+        table_scores = {}
+
+        for table_id, polygon in table_polygons.items():
+            score = 0
+
+            for point in sample_points:
+                normalized_point = normalize_point(
+                    point,
+                    frame_width,
+                    frame_height,
+                )
+
+                if point_in_polygon(normalized_point, polygon):
+                    score += 1
+
+            if score:
+                table_scores[table_id] = score
+
+        if table_scores:
+            best_table_id = max(
+                table_scores,
+                key=table_scores.get,
+            )
+            assignments[best_table_id].append(person["track_id"])
 
     return assignments

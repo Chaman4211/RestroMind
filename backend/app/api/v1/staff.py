@@ -77,6 +77,12 @@ def update_staff_member(
 
     update_data = payload.model_dump(exclude_unset=True)
 
+    if staff_member.role == "OWNER" and update_data:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The Owner profile is protected and cannot be edited here",
+        )
+
     if "name" in update_data and update_data["name"] is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -116,6 +122,12 @@ def delete_staff_member(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Staff member not found",
+        )
+
+    if staff_member.role == "OWNER":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Owner accounts cannot be deleted",
         )
 
     db.delete(staff_member)

@@ -6,6 +6,7 @@ import {
   deleteRestaurantTable,
   getCameraSources,
   getRestaurantTables,
+  markTableCustomerLeft,
   updateRestaurantTable,
   type RestaurantTable,
 } from '../services/api'
@@ -94,6 +95,15 @@ export default function TableManagement() {
     onSuccess: async () => {
       setMessage('Table deleted successfully.')
       await refreshTables()
+    },
+    onError: (error: Error) => setMessage(error.message),
+  })
+
+  const customerLeftMutation = useMutation({
+    mutationFn: markTableCustomerLeft,
+    onSuccess: async () => {
+      setMessage('Customer departure recorded. Table moved to cleaning.')
+      await queryClient.invalidateQueries()
     },
     onError: (error: Error) => setMessage(error.message),
   })
@@ -325,6 +335,22 @@ export default function TableManagement() {
                     </>
                   ) : (
                     <>
+                      {table.status === 'OCCUPIED' && (
+                        <button
+                          type="button"
+                          className="table-action-save"
+                          onClick={() => {
+                            setMessage('')
+                            customerLeftMutation.mutate(table.id)
+                          }}
+                          disabled={customerLeftMutation.isPending}
+                          aria-label={`Mark customer left at ${table.name}`}
+                          title="Mark customer left"
+                        >
+                          <Check size={17} />
+                          Mark customer left
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => startEditing(table)}

@@ -2,8 +2,8 @@ from pathlib import Path
 
 from ultralytics import YOLO
 
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
-MODEL_PATH = PROJECT_ROOT / "data" / "models" / "yolo11n.pt"
+BACKEND_ROOT = Path(__file__).resolve().parents[3]
+MODEL_PATH = BACKEND_ROOT / "yolo11n.pt"
 
 
 class PersonDetector:
