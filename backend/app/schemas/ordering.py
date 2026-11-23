@@ -104,6 +104,7 @@ class OrderCreatedResponse(OrderResponse):
 class OrderStatusUpdate(BaseModel):
     status: Literal["PREPARING", "READY", "SERVED", "CANCELLED"]
 
+
 class SharedCartItemChange(BaseModel):
     menu_item_id: int
     size: str | None = Field(default=None, min_length=1, max_length=30)
@@ -121,4 +122,3 @@ class SharedCartSubmit(BaseModel):
     notes: str | None = Field(default=None, max_length=500)
     customer_allergies: list[str] = Field(default_factory=list, max_length=20)
     allergy_notes: str | None = Field(default=None, max_length=500)
-

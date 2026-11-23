@@ -1,13 +1,12 @@
-
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, event, func, select, text
+from sqlalchemy import DateTime, ForeignKey, String, Text, event, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.services.staff_assignment import (
-    staff_role_for_request,
     find_least_loaded_staff_id,
+    staff_role_for_request,
 )
 
 
@@ -77,6 +76,4 @@ def assign_request_to_relevant_staff(mapper, connection, target):
         return
 
     role = staff_role_for_request(target.request_type)
-    target.assigned_staff_id = find_least_loaded_staff_id(
-        connection, role
-    )
+    target.assigned_staff_id = find_least_loaded_staff_id(connection, role)

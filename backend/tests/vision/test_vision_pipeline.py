@@ -33,17 +33,18 @@ class FakeOccupancyService:
         self.calls = []
 
     def process_detection(self, db, table_id, occupied, timestamp=None):
-        self.calls.append({
-            "table_id": table_id,
-            "occupied": occupied,
-            "timestamp": timestamp,
-        })
+        self.calls.append(
+            {
+                "table_id": table_id,
+                "occupied": occupied,
+                "timestamp": timestamp,
+            }
+        )
 
         return {
             "status": "OCCUPIED" if occupied else "FREE",
             "events": [],
         }
-
 
 
 class SequenceTracker:
@@ -249,24 +250,27 @@ def test_pipeline_matches_people_to_table_zones():
         db.close()
 
 
-
 def test_new_track_id_keeps_table_occupied_after_temporary_detection_loss():
     db = SessionLocal()
     camera_ids = []
     table_ids = []
 
     frames = [
-        [{
-            "track_id": 7,
-            "bbox": [40, 20, 60, 60],
-            "confidence": 0.95,
-        }],
+        [
+            {
+                "track_id": 7,
+                "bbox": [40, 20, 60, 60],
+                "confidence": 0.95,
+            }
+        ],
         [],
-        [{
-            "track_id": 19,
-            "bbox": [40, 20, 60, 60],
-            "confidence": 0.92,
-        }],
+        [
+            {
+                "track_id": 19,
+                "bbox": [40, 20, 60, 60],
+                "confidence": 0.92,
+            }
+        ],
     ]
 
     occupancy_service = FakeOccupancyService()

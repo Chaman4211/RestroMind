@@ -144,9 +144,7 @@ class VideoProcessor:
                     break
 
                 if frame_index % self.frame_interval == 0:
-                    timestamp = start_time + timedelta(
-                        seconds=frame_index / fps
-                    )
+                    timestamp = start_time + timedelta(seconds=frame_index / fps)
 
                     result = self.pipeline.process_frame(
                         db=db,

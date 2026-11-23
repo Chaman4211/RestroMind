@@ -41,7 +41,6 @@ def decode_access_token(token: str) -> dict:
     )
 
 
-
 def create_notification_token(subject: str) -> str:
     """Create a short-lived token exclusively for notification WebSockets."""
     expires_at = datetime.now(UTC) + timedelta(seconds=120)

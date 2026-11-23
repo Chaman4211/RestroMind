@@ -31,7 +31,7 @@ async def staff_notifications(websocket: WebSocket, token: str):
     try:
         payload = decode_access_token(token)
         if payload.get("purpose") != "staff_notifications":
-            raise ValueError("Invalid notification token purpose")
+            raise ValueError("Invalid notification token purpose")  # noqa: TRY301
         staff_id = int(payload["sub"])
         expires_at = float(payload["exp"])
     except (ValueError, TypeError, KeyError, Exception):
@@ -48,9 +48,7 @@ async def staff_notifications(websocket: WebSocket, token: str):
 
         initial_query = select(Alert.id).where(Alert.status == "OPEN")
         if role not in MANAGEMENT_ROLES:
-            initial_query = initial_query.where(
-                Alert.assigned_staff_id == staff_id
-            )
+            initial_query = initial_query.where(Alert.assigned_staff_id == staff_id)
         seen_ids = set(db.scalars(initial_query).all())
 
     await websocket.accept()
@@ -92,9 +90,7 @@ async def staff_notifications(websocket: WebSocket, token: str):
                 )
 
                 if role not in MANAGEMENT_ROLES:
-                    query = query.where(
-                        Alert.assigned_staff_id == staff_id
-                    )
+                    query = query.where(Alert.assigned_staff_id == staff_id)
 
                 rows = db.execute(query).all()
 
@@ -103,14 +99,16 @@ async def staff_notifications(websocket: WebSocket, token: str):
                     continue
 
                 seen_ids.add(alert_id)
-                await websocket.send_json({
-                    "type": "alert",
-                    "id": alert_id,
-                    "alert_type": alert_type,
-                    "message": message,
-                    "table_number": table_number,
-                    "created_at": created_at.isoformat() if created_at else None,
-                })
+                await websocket.send_json(
+                    {
+                        "type": "alert",
+                        "id": alert_id,
+                        "alert_type": alert_type,
+                        "message": message,
+                        "table_number": table_number,
+                        "created_at": created_at.isoformat() if created_at else None,
+                    }
+                )
 
             await asyncio.sleep(2)
 

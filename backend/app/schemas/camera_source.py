@@ -33,9 +33,7 @@ def validate_rtsp_url(value: SecretStr) -> None:
         valid = False
 
     if not valid:
-        raise ValueError(
-            "A valid RTSP or RTSPS camera address is required."
-        )
+        raise ValueError("A valid RTSP or RTSPS camera address is required.")
 
 
 class CameraSourceCreate(BaseModel):
@@ -52,9 +50,7 @@ class CameraSourceCreate(BaseModel):
             validate_rtsp_url(self.rtsp_url)
 
         elif self.rtsp_url is not None:
-            raise ValueError(
-                "An RTSP address can only be used with RTSP cameras."
-            )
+            raise ValueError("An RTSP address can only be used with RTSP cameras.")
 
         return self
 

@@ -11,9 +11,7 @@ class PersonDetector:
 
     def __init__(self, model_path: Path = MODEL_PATH):
         if not model_path.exists():
-            raise FileNotFoundError(
-                f"YOLO model not found: {model_path}"
-            )
+            raise FileNotFoundError(f"YOLO model not found: {model_path}")
 
         self.model = YOLO(str(model_path))
 
@@ -35,15 +33,17 @@ class PersonDetector:
             for box in result.boxes:
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
 
-                detections.append({
-                    "bbox": [
-                        float(x1),
-                        float(y1),
-                        float(x2),
-                        float(y2),
-                    ],
-                    "confidence": float(box.conf[0]),
-                    "class_id": int(box.cls[0]),
-                })
+                detections.append(
+                    {
+                        "bbox": [
+                            float(x1),
+                            float(y1),
+                            float(x2),
+                            float(y2),
+                        ],
+                        "confidence": float(box.conf[0]),
+                        "class_id": int(box.cls[0]),
+                    }
+                )
 
         return detections

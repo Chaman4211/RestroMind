@@ -11,12 +11,8 @@ class WifiSettings(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     ssid: Mapped[str] = mapped_column(String(32), nullable=False, default="")
-    password_encrypted: Mapped[str | None] = mapped_column(
-        String(500), nullable=True
-    )
-    is_enabled: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
+    password_encrypted: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

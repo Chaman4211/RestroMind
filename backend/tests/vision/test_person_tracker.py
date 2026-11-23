@@ -32,10 +32,12 @@ def make_tracker(boxes):
 
 
 def test_tracker_keeps_detections_when_tracking_ids_are_missing():
-    boxes = FakeBoxes([
-        FakeBox(10, 20, 50, 100),
-        FakeBox(60, 25, 100, 110),
-    ])
+    boxes = FakeBoxes(
+        [
+            FakeBox(10, 20, 50, 100),
+            FakeBox(60, 25, 100, 110),
+        ]
+    )
 
     people = make_tracker(boxes).update(np.zeros((120, 120, 3)))
 

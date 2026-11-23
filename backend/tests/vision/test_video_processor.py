@@ -36,7 +36,6 @@ class FakeCapture:
         self.released = True
 
 
-
 class EmptyFrameCapture(FakeCapture):
     def get(self, property_id):
         if property_id == 5:
@@ -45,14 +44,12 @@ class EmptyFrameCapture(FakeCapture):
             return 1
         return 0
 
+
 def test_video_processor_samples_frames_and_resets_tracker(tmp_path):
     video_path = tmp_path / "sample.mp4"
     video_path.touch()
 
-    frames = [
-        np.zeros((100, 100, 3), dtype=np.uint8)
-        for _ in range(10)
-    ]
+    frames = [np.zeros((100, 100, 3), dtype=np.uint8) for _ in range(10)]
 
     capture = FakeCapture(frames)
     pipeline = MagicMock()

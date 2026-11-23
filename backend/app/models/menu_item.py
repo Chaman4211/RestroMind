@@ -22,8 +22,8 @@ class MenuItem(Base):
     ingredients: Mapped[list] = mapped_column(
         JSON, default=list, server_default=text("'[]'"), nullable=False
     )
-    allergens: Mapped[list] = mapped_column(JSON,
-        default=list, server_default=text("'[]'"), nullable=False
+    allergens: Mapped[list] = mapped_column(
+        JSON, default=list, server_default=text("'[]'"), nullable=False
     )
     spice_level: Mapped[str] = mapped_column(
         String(20), default="MILD", server_default=text("'MILD'"), nullable=False

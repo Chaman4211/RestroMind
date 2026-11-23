@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.models.alert import Alert
 from app.models.occupancy_event import OccupancyEvent
-from app.models.restaurant_table import RestaurantTable
 from app.models.restaurant_order import RestaurantOrder
+from app.models.restaurant_table import RestaurantTable
 from app.services.occupancy.state_machine import (
     OccupancyStateMachine,
     TableStatus,
@@ -20,11 +20,7 @@ class OccupancyService:
     def _restore_state(self, table: RestaurantTable, sync: bool = False):
         state = self.state_machine.tables.get(table.id)
 
-        if (
-            state is not None
-            and not sync
-            and state.status.value == table.status
-        ):
+        if state is not None and not sync and state.status.value == table.status:
             return state
 
         if state is None:
@@ -101,7 +97,9 @@ class OccupancyService:
                     table_id=table_id,
                     previous_status=previous_status,
                     new_status=TableStatus.OCCUPIED.value,
-                    description="Customer placed an order or was detected at the table.",
+                    description=(
+                        "Customer placed an order or was detected at the table."
+                    ),
                     created_at=now,
                 )
             )
@@ -133,7 +131,9 @@ class OccupancyService:
             return self.mark_needs_cleaning(
                 db,
                 table_id,
-                description="Staff confirmed the customer has left. Table requires cleaning.",
+                description=(
+                    "Staff confirmed the customer has left. Table requires cleaning."
+                ),
                 timestamp=now,
             )
 
@@ -158,12 +158,17 @@ class OccupancyService:
                 )
             )
             if alert is None:
-                db.add(Alert(
-                    table_id=table_id,
-                    alert_type="UNPAID_BILL",
-                    message="Customer has left while an order payment is still outstanding.",
-                    created_at=now,
-                ))
+                db.add(
+                    Alert(
+                        table_id=table_id,
+                        alert_type="UNPAID_BILL",
+                        message=(
+                            "Customer has left while an order payment "
+                            "is still outstanding."
+                        ),
+                        created_at=now,
+                    )
+                )
             db.commit()
             return {
                 "table_id": table_id,
@@ -184,13 +189,15 @@ class OccupancyService:
 
             table.status = TableStatus.FREE.value
             table.last_status_changed_at = now
-            db.add(OccupancyEvent(
-                table_id=table_id,
-                previous_status=previous_status,
-                new_status=TableStatus.FREE.value,
-                description="Customer left without placing an order.",
-                created_at=now,
-            ))
+            db.add(
+                OccupancyEvent(
+                    table_id=table_id,
+                    previous_status=previous_status,
+                    new_status=TableStatus.FREE.value,
+                    description="Customer left without placing an order.",
+                    created_at=now,
+                )
+            )
             db.commit()
             return {
                 "table_id": table_id,
@@ -201,7 +208,9 @@ class OccupancyService:
         return self.mark_needs_cleaning(
             db,
             table_id,
-            description="Staff confirmed the customer has left. Table requires cleaning.",
+            description=(
+                "Staff confirmed the customer has left. Table requires cleaning."
+            ),
             timestamp=now,
         )
 
@@ -260,7 +269,7 @@ class OccupancyService:
             }
 
         previous_status = table.status
-        state = self._restore_state(table, sync=True)
+        self._restore_state(table, sync=True)
 
         result = self.state_machine.mark_needs_cleaning(
             table_id=table_id,
@@ -307,9 +316,7 @@ class OccupancyService:
         occupied: bool,
         timestamp: datetime | None = None,
     ):
-        table = db.scalar(
-            select(RestaurantTable).where(RestaurantTable.id == table_id)
-        )
+        table = db.scalar(select(RestaurantTable).where(RestaurantTable.id == table_id))
 
         if table is None:
             raise ValueError("Restaurant table not found")
@@ -317,15 +324,16 @@ class OccupancyService:
         now = timestamp or datetime.now().astimezone()
         self._restore_state(table)
 
-        has_orders = db.scalar(
-            self._current_visit_orders(table).limit(1)
-        ) is not None
+        has_orders = db.scalar(self._current_visit_orders(table).limit(1)) is not None
 
-        has_unpaid_order = db.scalar(
-            self._current_visit_orders(table)
-            .where(RestaurantOrder.payment_status != "PAID")
-            .limit(1)
-        ) is not None
+        has_unpaid_order = (
+            db.scalar(
+                self._current_visit_orders(table)
+                .where(RestaurantOrder.payment_status != "PAID")
+                .limit(1)
+            )
+            is not None
+        )
 
         # An unpaid departure is recorded as an alert, never as cleaning.
         if not occupied and has_unpaid_order:
@@ -351,12 +359,17 @@ class OccupancyService:
                     )
                 )
                 if existing_alert is None:
-                    db.add(Alert(
-                        table_id=table_id,
-                        alert_type="UNPAID_BILL",
-                        message="Camera detected customer departure while an order payment is outstanding.",
-                        created_at=now,
-                    ))
+                    db.add(
+                        Alert(
+                            table_id=table_id,
+                            alert_type="UNPAID_BILL",
+                            message=(
+                                "Camera detected customer departure while "
+                                "an order payment is outstanding."
+                            ),
+                            created_at=now,
+                        )
+                    )
                     db.commit()
 
                 # Keep the table occupied in the state machine until payment.
@@ -384,19 +397,24 @@ class OccupancyService:
                 table.status = new_status
                 table.last_status_changed_at = event["timestamp"]
 
-                db.add(OccupancyEvent(
-                    table_id=table_id,
-                    previous_status=previous_status,
-                    new_status=new_status,
-                    description=(
-                        "Customer left. Table requires cleaning."
-                        if new_status == TableStatus.NEEDS_CLEANING.value
-                        else "Customer left without placing an order. Table is available."
-                        if new_status == TableStatus.FREE.value
-                        else "Table occupancy status changed."
-                    ),
-                    created_at=event["timestamp"],
-                ))
+                db.add(
+                    OccupancyEvent(
+                        table_id=table_id,
+                        previous_status=previous_status,
+                        new_status=new_status,
+                        description=(
+                            "Customer left. Table requires cleaning."
+                            if new_status == TableStatus.NEEDS_CLEANING.value
+                            else (
+                                "Customer left without placing an order. "
+                                "Table is available."
+                            )
+                            if new_status == TableStatus.FREE.value
+                            else "Table occupancy status changed."
+                        ),
+                        created_at=event["timestamp"],
+                    )
+                )
 
                 if new_status == TableStatus.NEEDS_CLEANING.value:
                     existing_alert = db.scalar(
@@ -407,20 +425,24 @@ class OccupancyService:
                         )
                     )
                     if existing_alert is None:
-                        db.add(Alert(
-                            table_id=table_id,
-                            alert_type="CLEANING_REQUIRED",
-                            message="Customer has left. Table requires cleaning.",
-                            created_at=event["timestamp"],
-                        ))
+                        db.add(
+                            Alert(
+                                table_id=table_id,
+                                alert_type="CLEANING_REQUIRED",
+                                message="Customer has left. Table requires cleaning.",
+                                created_at=event["timestamp"],
+                            )
+                        )
 
             elif event["event_type"] == "SERVICE_REMINDER":
-                db.add(Alert(
-                    table_id=table_id,
-                    alert_type="SERVICE_REMINDER",
-                    message="Table has been occupied for an extended period.",
-                    created_at=event["timestamp"],
-                ))
+                db.add(
+                    Alert(
+                        table_id=table_id,
+                        alert_type="SERVICE_REMINDER",
+                        message="Table has been occupied for an extended period.",
+                        created_at=event["timestamp"],
+                    )
+                )
 
         if result["events"]:
             db.commit()
@@ -517,9 +539,7 @@ class OccupancyService:
         table_id: int,
         timestamp: datetime | None = None,
     ):
-        table = db.scalar(
-            select(RestaurantTable).where(RestaurantTable.id == table_id)
-        )
+        table = db.scalar(select(RestaurantTable).where(RestaurantTable.id == table_id))
 
         if table is None:
             raise ValueError("Restaurant table not found")

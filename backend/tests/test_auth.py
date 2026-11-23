@@ -48,9 +48,7 @@ def test_login_and_current_user():
 
         me_response = client.get(
             "/api/v1/auth/me",
-            headers={
-                "Authorization": f"Bearer {token_data['access_token']}"
-            },
+            headers={"Authorization": f"Bearer {token_data['access_token']}"},
         )
 
         assert me_response.status_code == 200

@@ -70,21 +70,21 @@ class OccupancyStateMachine:
                 if state.presence_started_at is None:
                     state.presence_started_at = now
 
-                elapsed = (
-                    now - state.presence_started_at
-                ).total_seconds()
+                elapsed = (now - state.presence_started_at).total_seconds()
 
                 if elapsed >= self.config.enter_threshold_seconds:
                     state.status = TableStatus.OCCUPIED
                     state.occupied_since = state.presence_started_at
                     state.service_reminder_sent = False
 
-                    events.append({
-                        "event_type": "STATUS_CHANGED",
-                        "table_id": table_id,
-                        "status": state.status.value,
-                        "timestamp": now,
-                    })
+                    events.append(
+                        {
+                            "event_type": "STATUS_CHANGED",
+                            "table_id": table_id,
+                            "status": state.status.value,
+                            "timestamp": now,
+                        }
+                    )
 
             elif state.status == TableStatus.OCCUPIED:
                 state.presence_started_at = None
@@ -96,9 +96,7 @@ class OccupancyStateMachine:
                 if state.absence_started_at is None:
                     state.absence_started_at = now
 
-                elapsed = (
-                    now - state.absence_started_at
-                ).total_seconds()
+                elapsed = (now - state.absence_started_at).total_seconds()
 
                 if (
                     elapsed >= self.config.exit_threshold_seconds
@@ -114,31 +112,33 @@ class OccupancyStateMachine:
                     state.absence_started_at = None
                     state.last_detected_at = None
 
-                    events.append({
-                        "event_type": "STATUS_CHANGED",
-                        "table_id": table_id,
-                        "status": state.status.value,
-                        "timestamp": now,
-                    })
+                    events.append(
+                        {
+                            "event_type": "STATUS_CHANGED",
+                            "table_id": table_id,
+                            "status": state.status.value,
+                            "timestamp": now,
+                        }
+                    )
 
         if (
             state.status == TableStatus.OCCUPIED
             and state.occupied_since is not None
             and not state.service_reminder_sent
         ):
-            elapsed = (
-                now - state.occupied_since
-            ).total_seconds()
+            elapsed = (now - state.occupied_since).total_seconds()
 
             if elapsed >= self.config.service_reminder_seconds:
                 state.service_reminder_sent = True
 
-                events.append({
-                    "event_type": "SERVICE_REMINDER",
-                    "table_id": table_id,
-                    "status": state.status.value,
-                    "timestamp": now,
-                })
+                events.append(
+                    {
+                        "event_type": "SERVICE_REMINDER",
+                        "table_id": table_id,
+                        "status": state.status.value,
+                        "timestamp": now,
+                    }
+                )
 
         return {
             "table_id": table_id,

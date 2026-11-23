@@ -1,4 +1,3 @@
-
 from app.services.video import rtsp_stream_manager as rtsp_module
 from app.services.video.rtsp_stream_manager import (
     RTSPStreamManager,
@@ -153,9 +152,7 @@ def test_rtsp_worker_hides_processing_errors(monkeypatch):
     manager._run(worker, "rtsp://private:secret@example.invalid")
 
     assert worker.status == "ERROR"
-    assert worker.error == (
-        "An error occurred while processing the RTSP stream."
-    )
+    assert worker.error == ("An error occurred while processing the RTSP stream.")
     assert "private" not in worker.error
     assert "secret" not in worker.error
     assert capture.released is True

@@ -47,10 +47,7 @@ def test_list_alerts_and_filter_by_status():
         assert response.status_code == 200
         alerts = response.json()
 
-        table_alerts = [
-            alert for alert in alerts
-            if alert["table_id"] == table_id
-        ]
+        table_alerts = [alert for alert in alerts if alert["table_id"] == table_id]
 
         assert len(table_alerts) == 2
         assert table_alerts[0]["table_number"] == table.table_number
@@ -63,14 +60,8 @@ def test_list_alerts_and_filter_by_status():
         )
 
         assert open_response.status_code == 200
-        assert all(
-            alert["status"] == "OPEN"
-            for alert in open_response.json()
-        )
-        assert any(
-            alert["table_id"] == table_id
-            for alert in open_response.json()
-        )
+        assert all(alert["status"] == "OPEN" for alert in open_response.json())
+        assert any(alert["table_id"] == table_id for alert in open_response.json())
 
         resolved_response = client.get(
             "/api/v1/alerts",
@@ -79,16 +70,13 @@ def test_list_alerts_and_filter_by_status():
         )
 
         assert resolved_response.status_code == 200
-        assert all(
-            alert["status"] == "RESOLVED"
-            for alert in resolved_response.json()
-        )
+        assert all(alert["status"] == "RESOLVED" for alert in resolved_response.json())
 
     finally:
         if table_id is not None:
-            db.query(Alert).filter(
-                Alert.table_id == table_id
-            ).delete(synchronize_session=False)
+            db.query(Alert).filter(Alert.table_id == table_id).delete(
+                synchronize_session=False
+            )
 
             table = db.get(RestaurantTable, table_id)
             if table is not None:

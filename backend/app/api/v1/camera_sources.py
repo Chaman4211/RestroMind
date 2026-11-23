@@ -107,12 +107,9 @@ def update_camera_source(
 
     if new_source_type == "RTSP":
         if requested_url is not None:
-            camera_source.rtsp_url_encrypted = _encrypt_camera_url(
-                requested_url
-            )
+            camera_source.rtsp_url_encrypted = _encrypt_camera_url(requested_url)
         elif (
-            camera_source.source_type != "RTSP"
-            or not camera_source.rtsp_url_encrypted
+            camera_source.source_type != "RTSP" or not camera_source.rtsp_url_encrypted
         ):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -154,7 +151,6 @@ def delete_camera_source(
     db.delete(camera_source)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
 
 
 @router.post("/{camera_source_id}/rtsp/start")
@@ -267,6 +263,7 @@ def get_rtsp_camera_status(
         }
 
     return result
+
 
 @router.get("/{camera_source_id}/rtsp/frame")
 def get_rtsp_camera_frame(

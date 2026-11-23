@@ -143,16 +143,18 @@ def get_restaurant_table_history(
     visits = []
 
     for event, table_number, table_name in rows:
-        events.append({
-            "id": event.id,
-            "table_id": event.table_id,
-            "table_number": table_number,
-            "table_name": table_name,
-            "previous_status": event.previous_status,
-            "new_status": event.new_status,
-            "description": event.description,
-            "created_at": event.created_at,
-        })
+        events.append(
+            {
+                "id": event.id,
+                "table_id": event.table_id,
+                "table_number": table_number,
+                "table_name": table_name,
+                "previous_status": event.previous_status,
+                "new_status": event.new_status,
+                "description": event.description,
+                "created_at": event.created_at,
+            }
+        )
 
         if event.new_status == "OCCUPIED":
             active_visits[event.table_id] = {
@@ -178,9 +180,7 @@ def get_restaurant_table_history(
         started_at = visit["started_at"]
         ended_at = datetime.now(started_at.tzinfo)
         visit["ended_at"] = None
-        visit["duration_seconds"] = max(
-            0, int((ended_at - started_at).total_seconds())
-        )
+        visit["duration_seconds"] = max(0, int((ended_at - started_at).total_seconds()))
         visit["is_ongoing"] = True
         visits.append(visit)
 
@@ -266,16 +266,10 @@ def delete_restaurant_table(
         )
 
     has_events = db.scalar(
-        select(OccupancyEvent.id)
-        .where(OccupancyEvent.table_id == table_id)
-        .limit(1)
+        select(OccupancyEvent.id).where(OccupancyEvent.table_id == table_id).limit(1)
     )
 
-    has_alerts = db.scalar(
-        select(Alert.id)
-        .where(Alert.table_id == table_id)
-        .limit(1)
-    )
+    has_alerts = db.scalar(select(Alert.id).where(Alert.table_id == table_id).limit(1))
 
     if has_events or has_alerts:
         raise HTTPException(
@@ -378,8 +372,7 @@ def confirm_table_cleaning(
         ).all()
 
         if not open_alerts or any(
-            alert.assigned_staff_id != current_user.id
-            for alert in open_alerts
+            alert.assigned_staff_id != current_user.id for alert in open_alerts
         ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
