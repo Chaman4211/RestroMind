@@ -1,23 +1,9 @@
-import { createContext, useContext, useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { getCurrentUser, login, logout as clearSession } from '../services/auth'
 import type { StaffUser } from '../services/api'
+import { AuthContext } from './authContext'
 import './AuthGate.css'
-
-type AuthContextValue = {
-  user: StaffUser
-  logout: () => void
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null)
-
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used inside AuthGate')
-  }
-  return context
-}
 
 type AuthGateProps = {
   children: ReactNode

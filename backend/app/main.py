@@ -2,9 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.alerts import router as alerts_router
+from app.api.v1.analytics import router as analytics_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.camera_sources import router as camera_sources_router
 from app.api.v1.camera_stream import router as camera_stream_router
+from app.api.v1.game_invitations import router as game_invitations_router
+from app.api.v1.games import router as games_router
 from app.api.v1.health import router as health_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.ordering import router as ordering_router
@@ -100,5 +103,20 @@ app.include_router(
 
 app.include_router(
     wifi_router,
+    prefix=settings.api_v1_prefix,
+)
+
+app.include_router(
+    games_router,
+    prefix=settings.api_v1_prefix,
+)
+
+app.include_router(
+    game_invitations_router,
+    prefix=settings.api_v1_prefix,
+)
+
+app.include_router(
+    analytics_router,
     prefix=settings.api_v1_prefix,
 )

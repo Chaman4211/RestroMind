@@ -1,7 +1,8 @@
 """Add upload-specific table zones."""
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "a71d8e4c9f20"
 down_revision = "c3d9a7f12b40"

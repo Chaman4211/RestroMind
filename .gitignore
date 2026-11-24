@@ -59,3 +59,5 @@ htmlcov/
 
 # Local backup files
 *-backup*
+
+/backups/

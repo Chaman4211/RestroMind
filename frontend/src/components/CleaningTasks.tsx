@@ -190,8 +190,12 @@ export default function CleaningTasks() {
     },
   })
 
-  const pendingTasks = pendingQuery.data ?? []
-  const completedTasks = completedQuery.data ?? []
+  const pendingTasks = (pendingQuery.data ?? []).filter(
+    (alert) => alert.alert_type === 'CLEANING_REQUIRED',
+  )
+  const completedTasks = (completedQuery.data ?? []).filter(
+    (alert) => alert.alert_type === 'CLEANING_REQUIRED',
+  )
   const staff = staffQuery.data ?? []
   const activeStaff = staff.filter((member) => member.is_active)
   const isLoading = pendingQuery.isLoading || completedQuery.isLoading

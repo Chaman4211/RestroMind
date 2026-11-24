@@ -50,6 +50,23 @@ KITCHEN_USER = require_roles(
 )
 
 
+@router.get("/public/tables")
+def get_public_tables(db: Session = Depends(get_db)):
+    """Return basic restaurant table details for customer-facing features."""
+    tables = db.scalars(
+        select(RestaurantTable).order_by(RestaurantTable.table_number)
+    ).all()
+
+    return [
+        {
+            "id": table.id,
+            "table_number": table.table_number,
+            "name": table.name,
+        }
+        for table in tables
+    ]
+
+
 @router.get("/public/tables/{table_id}")
 def get_public_table(table_id: int, db: Session = Depends(get_db)):
     """Return only the basic table details needed by a customer QR page."""

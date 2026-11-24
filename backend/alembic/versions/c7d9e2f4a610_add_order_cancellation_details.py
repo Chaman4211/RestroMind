@@ -1,7 +1,8 @@
 """Add cancellation details to restaurant orders."""
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "c7d9e2f4a610"
 down_revision = "b82d7e4a91c3"
