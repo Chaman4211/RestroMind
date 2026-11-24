@@ -546,6 +546,8 @@ export type RestaurantOrder = {
   customer_allergies: string[]
   allergy_notes: string | null
   status: OrderStatus
+  cancellation_reason?: string | null
+  cancelled_at?: string | null
   eating_completed_at: string | null
   payment_method: string | null
   payment_provider: string | null
@@ -626,6 +628,13 @@ export function getOrderTracking(token: string): Promise<RestaurantOrder> {
   return request<RestaurantOrder>(`/orders/track/${encodeURIComponent(token)}`)
 }
 
+export function cancelCustomerOrder(token: string): Promise<RestaurantOrder> {
+  return request<RestaurantOrder>(
+    `/orders/track/${encodeURIComponent(token)}/cancel`,
+    { method: 'POST' },
+  )
+}
+
 export function markOrderEatingComplete(token: string): Promise<RestaurantOrder> {
   return request<RestaurantOrder>(
     `/orders/track/${encodeURIComponent(token)}/eating-complete`,
@@ -641,10 +650,11 @@ export function getKitchenOrders(includeHistory = false): Promise<RestaurantOrde
 export function updateRestaurantOrderStatus(
   orderId: number,
   status: OrderStatus,
+  cancellationReason?: string,
 ): Promise<RestaurantOrder> {
   return request<RestaurantOrder>(`/orders/${orderId}/status`, {
     method: 'PATCH',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, cancellation_reason: cancellationReason }),
   })
 }
 
@@ -658,14 +668,36 @@ export function selectOrderPayment(
   })
 }
 
+export type OrderFeedback = {
+  id: number
+  rating: number
+  feedback: string | null
+  suggestion: string | null
+  created_at: string
+}
+
+export type FeedbackSummary = {
+  total_reviews: number
+  average_rating: number
+  recent_feedback: Array<OrderFeedback & { order_number: string }>
+}
+
+export function getOrderFeedback(token: string): Promise<OrderFeedback | null> {
+  return request(`/orders/track/${encodeURIComponent(token)}/feedback`)
+}
+
 export function submitOrderFeedback(
   token: string,
-  payload: { rating: number; feedback?: string | null },
-): Promise<{ id: number; rating: number; feedback: string | null; created_at: string }> {
+  payload: { rating: number; feedback?: string | null; suggestion?: string | null },
+): Promise<OrderFeedback> {
   return request(`/orders/track/${encodeURIComponent(token)}/feedback`, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+export function getFeedbackSummary(): Promise<FeedbackSummary> {
+  return request('/management/feedback-summary')
 }
 
 export function confirmOrderPayment(orderId: number): Promise<RestaurantOrder> {

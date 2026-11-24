@@ -12,9 +12,11 @@ import {
   getKitchenOrders,
   getManagedMenu,
   getOrderTracking,
+  cancelCustomerOrder,
   markOrderEatingComplete,
   selectOrderPayment,
   submitOrderFeedback,
+  getOrderFeedback,
   getPublicMenu,
   getPublicRestaurantTable,
   getPublicOrderServiceRequests,
@@ -1070,6 +1072,13 @@ export function OrderTrackingPage() {
     },
   })
 
+  const cancelOrderMutation = useMutation({
+    mutationFn: () => cancelCustomerOrder(token),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['order-tracking', token] })
+    },
+  })
+
   useEffect(() => {
     const initialUpdate = window.setTimeout(() => setNow(Date.now()), 0)
     const interval = window.setInterval(() => setNow(Date.now()), 1000)
@@ -1136,7 +1145,39 @@ export function OrderTrackingPage() {
             )
           })}
         </div>
-        {order.status === 'CANCELLED' && <p className="ordering-error">This order was cancelled. Please contact restaurant staff.</p>}
+        {order.status === 'CANCELLED' && (
+          <p className="ordering-error">
+            This order was cancelled.
+            {order.cancellation_reason ? ` Reason: ${order.cancellation_reason}` : ''}
+          </p>
+        )}
+
+        {order.status === 'NEW' && order.payment_status === 'UNPAID' && (
+          <div className="customer-cancel-order">
+            <p>You can cancel this order before the kitchen starts preparing it.</p>
+            <button
+              type="button"
+              className="ordering-primary"
+              disabled={cancelOrderMutation.isPending}
+              onClick={() => {
+                if (window.confirm('Are you sure you want to cancel this order?')) {
+                  cancelOrderMutation.mutate()
+                }
+              }}
+            >
+              {cancelOrderMutation.isPending ? 'Cancelling...' : 'Cancel Order'}
+            </button>
+            {cancelOrderMutation.isError && (
+              <p className="ordering-error">{cancelOrderMutation.error.message}</p>
+            )}
+          </div>
+        )}
+
+        {order.status === 'NEW' && order.payment_status !== 'UNPAID' && (
+          <p className="ordering-message">
+            Please contact restaurant staff if you need to cancel this order because payment has been requested or confirmed.
+          </p>
+        )}
       </section>
       <section className="tracking-card">
         <h2>Order details</h2>
@@ -1237,8 +1278,8 @@ export function KitchenDisplay() {
   }, [])
 
   const mutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: OrderStatus }) =>
-      updateRestaurantOrderStatus(id, status),
+    mutationFn: ({ id, status, reason }: { id: number; status: OrderStatus; reason?: string }) =>
+      updateRestaurantOrderStatus(id, status, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen-orders'] })
       queryClient.invalidateQueries({ queryKey: ['order-tracking'] })
@@ -1378,6 +1419,24 @@ export function KitchenDisplay() {
                     onClick={() => mutation.mutate({ id: order.id, status: nextStatus[order.status]! })}
                   >
                     {order.status === 'NEW' ? 'Start preparing' : order.status === 'PREPARING' ? 'Mark ready' : 'Mark served'}
+                  </button>
+                )}
+                {view === 'ACTIVE' && ['NEW', 'PREPARING', 'READY'].includes(order.status) && (
+                  <button
+                    className="ticket-action"
+                    disabled={mutation.isPending}
+                    onClick={() => {
+                      const reason = window.prompt('Enter the reason for cancelling this order:')
+                      if (reason === null) return
+                      if (reason.trim().length < 3) {
+                        window.alert('Please enter a reason with at least 3 characters.')
+                        return
+                      }
+                      if (!window.confirm(`Cancel order ${order.order_number}?`)) return
+                      mutation.mutate({ id: order.id, status: 'CANCELLED', reason: reason.trim() })
+                    }}
+                  >
+                    Cancel order
                   </button>
                 )}
               </div>
@@ -1547,6 +1606,7 @@ export function OrderThankYouPage() {
   const navigate = useNavigate()
   const [rating, setRating] = useState(5)
   const [feedback, setFeedback] = useState('')
+  const [suggestion, setSuggestion] = useState('')
   const query = useQuery({
     queryKey: ['order-tracking', token],
     queryFn: () => getOrderTracking(token),
@@ -1560,11 +1620,22 @@ export function OrderThankYouPage() {
     enabled: Boolean(order?.table_id),
     retry: false,
   })
+  const savedFeedbackQuery = useQuery({
+    queryKey: ['order-feedback', token],
+    queryFn: () => getOrderFeedback(token),
+    enabled: Boolean(token && order?.payment_status === 'PAID'),
+    retry: false,
+  })
+  const queryClient = useQueryClient()
   const feedbackMutation = useMutation({
     mutationFn: () => submitOrderFeedback(token, {
       rating,
       feedback: feedback.trim() || null,
+      suggestion: suggestion.trim() || null,
     }),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(['order-feedback', token], saved)
+    },
   })
 
   useEffect(() => {
@@ -1622,11 +1693,22 @@ export function OrderThankYouPage() {
         <p className="ordering-eyebrow">YOUR EXPERIENCE MATTERS</p>
         <h2>How was your experience?</h2>
         <p>Please rate your visit. Your feedback helps us improve.</p>
-        {feedbackMutation.isSuccess ? (
+        {savedFeedbackQuery.isLoading ? (
+          <p>Loading your saved feedback...</p>
+        ) : savedFeedbackQuery.data ? (
           <div className="customer-service-success">
             <h3>Thank you for your feedback!</h3>
-            <p>Your rating has been saved.</p>
+            <p>Your rating: {'★'.repeat(savedFeedbackQuery.data.rating)}</p>
+            {savedFeedbackQuery.data.feedback && (
+              <p>Your review: {savedFeedbackQuery.data.feedback}</p>
+            )}
+            {savedFeedbackQuery.data.suggestion && (
+              <p>Your suggestion: {savedFeedbackQuery.data.suggestion}</p>
+            )}
+            <small>Submitted {new Date(savedFeedbackQuery.data.created_at).toLocaleString()}</small>
           </div>
+        ) : savedFeedbackQuery.isError ? (
+          <p className="ordering-error">{savedFeedbackQuery.error.message}</p>
         ) : (
           <>
             <div className="thank-you-stars" role="group" aria-label="Rate your experience">
@@ -1653,6 +1735,17 @@ export function OrderThankYouPage() {
               maxLength={1000}
               rows={4}
               placeholder="Tell us what you liked or what we can improve..."
+            />
+            <label className="thank-you-feedback-label" htmlFor="order-suggestion">
+              Suggestions for the restaurant (optional)
+            </label>
+            <textarea
+              id="order-suggestion"
+              value={suggestion}
+              onChange={(event) => setSuggestion(event.target.value)}
+              maxLength={1000}
+              rows={3}
+              placeholder="What could we improve for your next visit?"
             />
             <button
               type="button"
