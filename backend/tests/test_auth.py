@@ -48,7 +48,9 @@ def test_login_and_current_user():
 
         me_response = client.get(
             "/api/v1/auth/me",
-            headers={"Authorization": f"Bearer {token_data['access_token']}"},
+            headers={
+                "Authorization": f"Bearer {token_data['access_token']}"
+            },
         )
 
         assert me_response.status_code == 200
@@ -66,25 +68,19 @@ def test_login_and_current_user():
         db.close()
 
 
-def test_login_rejects_invalid_password():
+def test_password_login_rejects_invalid_credentials():
     response = client.post(
         "/api/v1/auth/login",
         json={
-            "email": f"missing-{uuid4().hex[:12]}@example.com",
-            "password": "WrongPassword123!",
+            "email": f"test-{uuid4().hex[:12]}@example.com",
+            "password": "TestPassword123!",
         },
     )
 
     assert response.status_code == 401
 
 
-def test_current_user_requires_token():
-    response = client.get("/api/v1/auth/me")
-
-    assert response.status_code == 401
-
-
-def test_owner_setup_rejects_invalid_key():
+def test_owner_setup_rejects_invalid_setup_key():
     response = client.post(
         "/api/v1/auth/setup-owner",
         json={
@@ -96,3 +92,9 @@ def test_owner_setup_rejects_invalid_key():
     )
 
     assert response.status_code == 403
+
+
+def test_current_user_requires_token():
+    response = client.get("/api/v1/auth/me")
+
+    assert response.status_code == 401

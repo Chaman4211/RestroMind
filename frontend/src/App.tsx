@@ -23,6 +23,7 @@ import {
   Clock3,
   Coffee,
   LayoutDashboard,
+  LogOut,
   Menu,
   MonitorPlay,
   Plus,
@@ -44,6 +45,7 @@ import Staff from './components/Staff'
 import WifiSettings from './components/WifiSettings'
 import { KitchenDisplay, MenuManagement, TableQRCodes } from './components/OrderingPages'
 import { getAccessToken } from './services/auth'
+import { useAuth } from './components/AuthGate'
 import './App.css'
 
 type TableStatus = 'free' | 'occupied' | 'cleaning'
@@ -166,6 +168,7 @@ function getHistoryEventLabel(event: OccupancyHistoryEvent): string {
 }
 
 function App() {
+  const { user, logout } = useAuth()
   const [currentDate, setCurrentDate] = useState<Date | null>(null)
 
   useEffect(() => {
@@ -419,11 +422,30 @@ function App() {
             </button>
           </div>
           <div className="profile">
-            <div className="avatar">RM</div>
-            <div className="profile-copy">
-              <div className="profile-name">Demo Workspace</div>
-              <div className="profile-role">Public Demo</div>
+            <div className="avatar">
+              {user.name
+                .trim()
+                .split(/\s+/)
+                .map((part) => part[0])
+                .slice(0, 2)
+                .join('')
+                .toUpperCase()}
             </div>
+            <div className="profile-copy">
+              <div className="profile-name">{user.name}</div>
+              <div className="profile-role">
+                {user.role.replaceAll('_', ' ')}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="profile-logout"
+              onClick={logout}
+              title="Sign out"
+              aria-label="Sign out"
+            >
+              <LogOut size={15} />
+            </button>
           </div>
         </div>
       </aside>
@@ -639,7 +661,13 @@ function App() {
               <h1 className="page-title">{greeting}</h1>
               <p className="page-subtitle">Here’s what’s happening across your restaurant today.</p>
             </div>
-            <button className="primary-button" onClick={() => showNotice('Table setup will be connected to the API next.')}>
+            <button
+              className="primary-button"
+              onClick={() => {
+                setActiveNav('Table management')
+                setMobileNavOpen(false)
+              }}
+            >
               <Plus size={15} /> Add a table
             </button>
           </div>

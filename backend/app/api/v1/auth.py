@@ -15,46 +15,8 @@ from app.schemas.staff_user import StaffUserResponse
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/demo-session", response_model=TokenResponse)
-def create_demo_session(db: Session = Depends(get_db)):
-    if not settings.demo_mode:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Demo mode is disabled",
-        )
-
-    owner = (
-        db.query(StaffUser)
-        .filter(
-            StaffUser.role == "OWNER",
-            StaffUser.is_active.is_(True),
-        )
-        .first()
-    )
-
-    if owner is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="No active demo workspace owner exists",
-        )
-
-    token = create_access_token(str(owner.id))
-
-    return TokenResponse(
-        access_token=token,
-        expires_in=settings.access_token_expire_minutes * 60,
-        user=owner,
-    )
-
-
 @router.post("/setup-owner", response_model=TokenResponse, status_code=201)
 def setup_owner(payload: OwnerSetupRequest, db: Session = Depends(get_db)):
-    if settings.demo_mode:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Password login is disabled in demo mode",
-        )
-
     if not settings.owner_setup_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -112,15 +74,13 @@ def setup_owner(payload: OwnerSetupRequest, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    if settings.demo_mode:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Password login is disabled in demo mode",
-        )
-
     email = str(payload.email).lower()
 
-    user = db.query(StaffUser).filter(StaffUser.email == email).first()
+    user = (
+        db.query(StaffUser)
+        .filter(StaffUser.email == email)
+        .first()
+    )
 
     if (
         user is None

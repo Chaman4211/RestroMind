@@ -809,7 +809,7 @@ export function CustomerOrderPage() {
                       <button
                         type="button"
                         aria-label={`Remove one ${item.name}`}
-                        disabled={!getCartQuantity(item) || cartMutation.isPending}
+                        disabled={!getCartQuantity(item)}
                         onClick={() => cartMutation.mutate({
                           menu_item_id: item.id,
                           size: getSelectedSize(item) || null,
@@ -821,7 +821,7 @@ export function CustomerOrderPage() {
                       <button
                         type="button"
                         aria-label={`Add one ${item.name}`}
-                        disabled={cartMutation.isPending || getCartQuantity(item) >= 30}
+                        disabled={getCartQuantity(item) >= 30}
                         onClick={() => cartMutation.mutate({
                           menu_item_id: item.id,
                           size: getSelectedSize(item) || null,
