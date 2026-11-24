@@ -25,6 +25,10 @@ class RestaurantOrder(Base):
     status: Mapped[str] = mapped_column(
         String(30), default="NEW", server_default=text("'NEW'"), nullable=False
     )
+    cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     eating_completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

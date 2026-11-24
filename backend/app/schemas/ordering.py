@@ -84,6 +84,8 @@ class OrderResponse(BaseModel):
     customer_allergies: list[str]
     allergy_notes: str | None
     status: str
+    cancellation_reason: str | None = None
+    cancelled_at: datetime | None = None
     eating_completed_at: datetime | None = None
     payment_method: str | None = None
     payment_provider: str | None = None
@@ -103,6 +105,7 @@ class OrderCreatedResponse(OrderResponse):
 
 class OrderStatusUpdate(BaseModel):
     status: Literal["PREPARING", "READY", "SERVED", "CANCELLED"]
+    cancellation_reason: str | None = Field(default=None, min_length=3, max_length=500)
 
 
 class SharedCartItemChange(BaseModel):
@@ -115,6 +118,7 @@ class SharedCartItemChange(BaseModel):
 class OrderFeedbackCreate(BaseModel):
     rating: int = Field(ge=1, le=5)
     feedback: str | None = Field(default=None, max_length=1000)
+    suggestion: str | None = Field(default=None, max_length=1000)
 
 
 class SharedCartSubmit(BaseModel):

@@ -6,6 +6,7 @@ import {
   getOccupancyHistory,
   getRestaurantTables,
   getServiceRequests,
+  getFeedbackSummary,
   type OccupancyHistoryEvent,
   type RestaurantAlert,
   type RestaurantTable as ApiRestaurantTable,
@@ -25,6 +26,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   MonitorPlay,
   Plus,
   Settings2,
@@ -86,6 +88,7 @@ const navItems = [
   { label: 'Menu management', icon: Menu },
   { label: 'Table QR codes', icon: Table2 },
   { label: 'Staff', icon: Users },
+  { label: 'Customer Feedback', icon: MessageSquare },
   { label: 'Settings', icon: Settings2 },
 ]
 
@@ -234,6 +237,13 @@ function App() {
     queryKey: ['service-requests'],
     queryFn: getServiceRequests,
     refetchInterval: 5000,
+  })
+
+  const feedbackSummaryQuery = useQuery({
+    queryKey: ['feedback-summary'],
+    queryFn: getFeedbackSummary,
+    enabled: activeNav === 'Customer Feedback',
+    refetchInterval: 30000,
   })
 
   const activeServiceRequests = serviceRequests.filter(
@@ -650,6 +660,71 @@ function App() {
               <strong>Need technical support?</strong>
               <p>Keep the error message, the page where it occurred, and the time of the issue. Share these details with your RestroMind project administrator so the problem can be investigated.</p>
             </div>
+          </section>
+        </div>
+
+        <div style={{ display: activeNav === 'Customer Feedback' ? 'block' : 'none' }}>
+          <section className="content">
+            <div className="welcome-row">
+              <div>
+                <div className="eyebrow">CUSTOMER EXPERIENCE</div>
+                <h1 className="page-title">Customer Feedback</h1>
+                <p className="page-subtitle">Review ratings and suggestions submitted after paid orders.</p>
+              </div>
+            </div>
+
+            {feedbackSummaryQuery.isLoading ? (
+              <p className="panel-caption">Loading customer feedback...</p>
+            ) : feedbackSummaryQuery.isError ? (
+              <p className="panel-caption">Customer feedback is currently unavailable. Please try again.</p>
+            ) : (
+              <>
+                <section className="stats-grid">
+                  <StatCard
+                    label="Average rating"
+                    value={`${(feedbackSummaryQuery.data?.average_rating ?? 0).toFixed(2)} / 5`}
+                    foot="Average customer score"
+                    icon={<Sparkles size={16} />}
+                    tint="#edf1ed"
+                    color="#607d67"
+                  />
+                  <StatCard
+                    label="Total reviews"
+                    value={String(feedbackSummaryQuery.data?.total_reviews ?? 0)}
+                    foot="Submitted paid-order reviews"
+                    icon={<MessageSquare size={16} />}
+                    tint="#eaf1e8"
+                    color="#4d7954"
+                  />
+                </section>
+
+                <section className="panel" style={{ marginTop: 20 }}>
+                  <div className="panel-header">
+                    <div>
+                      <div className="panel-title">Recent reviews and suggestions</div>
+                      <div className="panel-caption">Feedback from your customers</div>
+                    </div>
+                  </div>
+                  {(feedbackSummaryQuery.data?.recent_feedback ?? []).length === 0 ? (
+                    <p className="panel-caption">No customer reviews have been submitted yet.</p>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      {(feedbackSummaryQuery.data?.recent_feedback ?? []).map((entry) => (
+                        <article key={entry.id} style={{ padding: 14, border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                            <strong>Order {entry.order_number}</strong>
+                            <span aria-label={`${entry.rating} out of 5 stars`}>{'★'.repeat(entry.rating)}{'☆'.repeat(5 - entry.rating)}</span>
+                          </div>
+                          {entry.feedback && <p style={{ margin: '8px 0 0' }}>{entry.feedback}</p>}
+                          {entry.suggestion && <p style={{ margin: '8px 0 0' }}><strong>Suggestion:</strong> {entry.suggestion}</p>}
+                          <small>{new Date(entry.created_at).toLocaleString()}</small>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
           </section>
         </div>
 

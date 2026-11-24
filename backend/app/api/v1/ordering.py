@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -451,6 +451,79 @@ def track_order(public_token: str, db: Session = Depends(get_db)):
     return order
 
 
+@router.post(
+    "/orders/track/{public_token}/cancel",
+    response_model=OrderResponse,
+)
+def cancel_customer_order(public_token: str, db: Session = Depends(get_db)):
+    order = (
+        db.query(RestaurantOrder)
+        .options(joinedload(RestaurantOrder.items))
+        .filter(RestaurantOrder.public_token == public_token)
+        .first()
+    )
+
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != "NEW":
+        raise HTTPException(
+            status_code=409,
+            detail="This order can only be cancelled before preparation starts.",
+        )
+
+    if order.payment_status != "UNPAID":
+        raise HTTPException(
+            status_code=409,
+            detail="This order has a pending or confirmed payment. Please contact restaurant staff.",
+        )
+
+    order.status = "CANCELLED"
+    order.cancellation_reason = "Cancelled by customer"
+    order.cancelled_at = datetime.now(UTC)
+
+    db.commit()
+    db.refresh(order)
+
+    return order
+
+
+def serialize_order_feedback(entry):
+    return {
+        "id": entry.id,
+        "rating": entry.rating,
+        "feedback": entry.feedback,
+        "suggestion": entry.suggestion,
+        "created_at": entry.created_at,
+    }
+
+
+@router.get("/orders/track/{public_token}/feedback")
+def get_order_feedback(
+    public_token: str,
+    db: Session = Depends(get_db),
+):
+    order = (
+        db.query(RestaurantOrder)
+        .filter(RestaurantOrder.public_token == public_token)
+        .first()
+    )
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.payment_status != "PAID":
+        raise HTTPException(
+            status_code=409,
+            detail="Feedback is available after payment is confirmed.",
+        )
+
+    entry = (
+        db.query(RestaurantOrderFeedback)
+        .filter(RestaurantOrderFeedback.order_id == order.id)
+        .first()
+    )
+    return serialize_order_feedback(entry) if entry else None
+
+
 @router.post("/orders/track/{public_token}/feedback")
 def submit_order_feedback(
     public_token: str,
@@ -466,28 +539,74 @@ def submit_order_feedback(
         raise HTTPException(status_code=404, detail="Order not found")
     if order.payment_status != "PAID":
         raise HTTPException(
-            status_code=409, detail="Feedback is available after payment is confirmed."
+            status_code=409,
+            detail="Feedback is available after payment is confirmed.",
         )
-    entry = (
+
+    existing = (
         db.query(RestaurantOrderFeedback)
         .filter(RestaurantOrderFeedback.order_id == order.id)
         .first()
     )
-    if entry is None:
-        entry = RestaurantOrderFeedback(
-            order_id=order.id, rating=payload.rating, feedback=payload.feedback
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Feedback has already been submitted for this order.",
         )
-        db.add(entry)
-    else:
-        entry.rating = payload.rating
-        entry.feedback = payload.feedback
+
+    entry = RestaurantOrderFeedback(
+        order_id=order.id,
+        rating=payload.rating,
+        feedback=payload.feedback.strip() if payload.feedback else None,
+        suggestion=payload.suggestion.strip() if payload.suggestion else None,
+    )
+    db.add(entry)
     db.commit()
     db.refresh(entry)
+    return serialize_order_feedback(entry)
+
+
+@router.get("/management/feedback-summary")
+def get_management_feedback_summary(
+    current_user: StaffUser = Depends(MANAGEMENT_USER),
+    db: Session = Depends(get_db),
+):
+    total_reviews, average_rating = (
+        db.query(
+            func.count(RestaurantOrderFeedback.id),
+            func.avg(RestaurantOrderFeedback.rating),
+        )
+        .one()
+    )
+
+    recent_entries = (
+        db.query(RestaurantOrderFeedback, RestaurantOrder.order_number)
+        .join(
+            RestaurantOrder,
+            RestaurantOrder.id == RestaurantOrderFeedback.order_id,
+        )
+        .order_by(
+            RestaurantOrderFeedback.created_at.desc(),
+            RestaurantOrderFeedback.id.desc(),
+        )
+        .limit(10)
+        .all()
+    )
+
     return {
-        "id": entry.id,
-        "rating": entry.rating,
-        "feedback": entry.feedback,
-        "created_at": entry.created_at,
+        "total_reviews": total_reviews,
+        "average_rating": round(float(average_rating or 0), 2),
+        "recent_feedback": [
+            {
+                "id": entry.id,
+                "order_number": order_number,
+                "rating": entry.rating,
+                "feedback": entry.feedback,
+                "suggestion": entry.suggestion,
+                "created_at": entry.created_at,
+            }
+            for entry, order_number in recent_entries
+        ],
     }
 
 
@@ -753,6 +872,23 @@ def update_order_status(
             status_code=400,
             detail=f"Cannot change order from {order.status} to {payload.status}",
         )
+
+    if payload.status == "CANCELLED":
+        reason = (payload.cancellation_reason or "").strip()
+        if len(reason) < 3:
+            raise HTTPException(
+                status_code=422,
+                detail="A cancellation reason of at least 3 characters is required",
+            )
+        if order.status == "READY" and current_user.role not in (
+            "OWNER", "MANAGER", "ASSISTANT_MANAGER", "SUPERVISOR"
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Only management can cancel an order that is ready to serve",
+            )
+        order.cancellation_reason = reason
+        order.cancelled_at = datetime.now(UTC)
 
     order.status = payload.status
     db.commit()
