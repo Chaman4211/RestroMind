@@ -475,7 +475,10 @@ def cancel_customer_order(public_token: str, db: Session = Depends(get_db)):
     if order.payment_status != "UNPAID":
         raise HTTPException(
             status_code=409,
-            detail="This order has a pending or confirmed payment. Please contact restaurant staff.",
+            detail=(
+                "This order has a pending or confirmed payment. "
+                "Please contact restaurant staff."
+            ),
         )
 
     order.status = "CANCELLED"
