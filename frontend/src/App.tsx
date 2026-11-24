@@ -222,6 +222,10 @@ function App() {
     refetchInterval: 10000,
   })
 
+  const notificationAlerts = openAlerts.filter(
+    (alert: RestaurantAlert) => alert.alert_type === 'CLEANING_REQUIRED',
+  )
+
   const {
     data: occupancyHistory,
     isLoading: historyLoading,
@@ -476,12 +480,12 @@ function App() {
             <div className="notification-wrapper">
               <button
                 className="icon-button"
-                aria-label={`Notifications, ${openAlerts.length} open alerts`}
+                aria-label={`Notifications, ${notificationAlerts.length} open alerts`}
                 aria-expanded={notificationsOpen}
                 onClick={() => setNotificationsOpen((open) => !open)}
               >
                 <Bell size={16} />
-                {openAlerts.length > 0 && <span className="notification-dot" />}
+                {notificationAlerts.length > 0 && <span className="notification-dot" />}
               </button>
 
               {notificationsOpen && (
@@ -489,7 +493,7 @@ function App() {
                   <div className="notification-panel-header">
                     <div>
                       <strong>Notifications</strong>
-                      <span>{openAlerts.length} open alerts</span>
+                      <span>{notificationAlerts.length} open alerts</span>
                     </div>
                     <button
                       className="notification-close"
@@ -507,13 +511,13 @@ function App() {
                       <p className="notification-empty">
                         Could not load alerts. Please try again.
                       </p>
-                    ) : openAlerts.length === 0 ? (
+                    ) : notificationAlerts.length === 0 ? (
                       <p className="notification-empty">
                         <CheckCircle2 size={18} />
                         All caught up. No open alerts.
                       </p>
                     ) : (
-                      openAlerts.map((alert: RestaurantAlert) => (
+                      notificationAlerts.map((alert: RestaurantAlert) => (
                         <button
                           className="notification-entry"
                           key={alert.id}
@@ -847,12 +851,10 @@ function App() {
                         alert.table_id === table.id &&
                         alert.alert_type === 'UNPAID_BILL',
                     )
-                    const hasAttention = hasUnpaidBill || tableRequests.length > 0
-                    const displayStatus = hasUnpaidBill
-                      ? 'Unpaid bill'
-                      : tableRequests.length > 0
-                        ? 'Needs attention'
-                        : statusLabels[table.status]
+                    const hasAttention = tableRequests.length > 0
+                    const displayStatus = hasAttention
+                      ? 'Needs attention'
+                      : statusLabels[table.status]
 
                     const statusColor = hasAttention
                       ? '#dc5555'
