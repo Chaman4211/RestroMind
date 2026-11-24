@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.deps import require_roles
 from app.db.session import get_db
@@ -250,6 +251,7 @@ def change_shared_cart_item(
         )
 
     session.cart = cart
+    flag_modified(session, 'cart')
     db.commit()
     db.refresh(session)
     return {
