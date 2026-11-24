@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   confirmTableCleaning,
@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Bell,
   CalendarDays,
+  ChartNoAxesCombined,
   CheckCircle2,
   CircleHelp,
   ClipboardList,
@@ -45,9 +46,10 @@ import CleaningTasks from './components/CleaningTasks'
 import ServiceRequests from './components/ServiceRequests'
 import Staff from './components/Staff'
 import WifiSettings from './components/WifiSettings'
+const BusinessAnalytics = lazy(() => import('./components/BusinessAnalytics'))
 import { KitchenDisplay, MenuManagement, TableQRCodes } from './components/OrderingPages'
 import { getAccessToken } from './services/auth'
-import { useAuth } from './components/AuthGate'
+import { useAuth } from './components/authContext'
 import './App.css'
 
 type TableStatus = 'free' | 'occupied' | 'cleaning'
@@ -89,6 +91,7 @@ const navItems = [
   { label: 'Table QR codes', icon: Table2 },
   { label: 'Staff', icon: Users },
   { label: 'Customer Feedback', icon: MessageSquare },
+  { label: 'Business Analytics', icon: ChartNoAxesCombined },
   { label: 'Settings', icon: Settings2 },
 ]
 
@@ -604,6 +607,12 @@ function App() {
         <div style={{ display: activeNav === 'Staff' ? 'block' : 'none' }}>
           <Staff />
         </div>
+
+        {activeNav === 'Business Analytics' && (
+          <Suspense fallback={<div className="content">Loading Business Analytics...</div>}>
+            <BusinessAnalytics />
+          </Suspense>
+        )}
 
         <div style={{ display: activeNav === 'Settings' ? 'block' : 'none' }}>
           <section className="content settings-workspace">

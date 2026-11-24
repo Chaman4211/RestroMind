@@ -3,8 +3,10 @@
 Revision ID: e4f8b2c91a60
 Revises: d93b7a61e205
 """
-from alembic import op
+
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "e4f8b2c91a60"
 down_revision = "d93b7a61e205"
@@ -26,8 +28,18 @@ def upgrade() -> None:
         sa.Column("cart", sa.JSON(), nullable=False, server_default="[]"),
         sa.Column("round_number", sa.Integer(), nullable=False, server_default="1"),
         sa.Column("active", sa.Boolean(), nullable=False, server_default=sa.true()),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
     )
 
 

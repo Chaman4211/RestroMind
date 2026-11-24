@@ -1,13 +1,20 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.restaurant_table import RestaurantTable
-from app.models.reward import RewardAccount, RewardClaim
+from app.models.reward import (
+    RewardAccount,
+    RewardClaim,
+    VisitorRewardAccount,
+    VisitorRewardClaim,
+)
 
 router = APIRouter(prefix="/rewards", tags=["Customer Rewards"])
 
@@ -160,6 +167,132 @@ def submit_table_reward_answer(
         }
 
     db.refresh(account)
+    return {
+        "already_played": False,
+        "correct": correct,
+        "points_awarded": awarded,
+        "total_points": account.points,
+    }
+
+
+
+def get_or_create_visitor_account(db: Session, visitor_id: UUID):
+    visitor_key = str(visitor_id)
+
+    statement = (
+        pg_insert(VisitorRewardAccount)
+        .values(visitor_id=visitor_key, points=0)
+        .on_conflict_do_nothing(index_elements=["visitor_id"])
+    )
+    db.execute(statement)
+    db.commit()
+
+    return (
+        db.query(VisitorRewardAccount)
+        .filter(VisitorRewardAccount.visitor_id == visitor_key)
+        .one()
+    )
+
+
+@router.get("/visitor/{visitor_id}/table/{table_id}")
+def get_visitor_rewards(
+    visitor_id: UUID,
+    table_id: int,
+    db: Session = Depends(get_db),
+):
+    validate_table(db, table_id)
+    account = get_or_create_visitor_account(db, visitor_id)
+    challenge_date = today_utc()
+    challenge = get_challenge(challenge_date)
+
+    claim = (
+        db.query(VisitorRewardClaim)
+        .filter(
+            VisitorRewardClaim.visitor_id == str(visitor_id),
+            VisitorRewardClaim.challenge_date == challenge_date,
+        )
+        .first()
+    )
+
+    return {
+        "visitor_id": str(visitor_id),
+        "table_id": table_id,
+        "points": account.points,
+        "challenge_date": challenge_date.isoformat(),
+        "question": challenge["question"],
+        "options": challenge["options"],
+        "already_played": claim is not None,
+        "last_answer_correct": claim.is_correct if claim else None,
+        "points_awarded_today": claim.points_awarded if claim else 0,
+    }
+
+
+@router.post("/visitor/{visitor_id}/table/{table_id}/answer")
+def submit_visitor_reward_answer(
+    visitor_id: UUID,
+    table_id: int,
+    payload: RewardAnswer,
+    db: Session = Depends(get_db),
+):
+    validate_table(db, table_id)
+    account = get_or_create_visitor_account(db, visitor_id)
+    challenge_date = today_utc()
+    visitor_key = str(visitor_id)
+
+    existing = (
+        db.query(VisitorRewardClaim)
+        .filter(
+            VisitorRewardClaim.visitor_id == visitor_key,
+            VisitorRewardClaim.challenge_date == challenge_date,
+        )
+        .first()
+    )
+
+    if existing:
+        return {
+            "already_played": True,
+            "correct": existing.is_correct,
+            "points_awarded": existing.points_awarded,
+            "total_points": account.points,
+        }
+
+    challenge = get_challenge(challenge_date)
+    correct = payload.answer_index == challenge["answer"]
+    awarded = POINTS_PER_CORRECT_ANSWER if correct else 0
+
+    claim = VisitorRewardClaim(
+        visitor_id=visitor_key,
+        table_id=table_id,
+        challenge_date=challenge_date,
+        is_correct=correct,
+        points_awarded=awarded,
+    )
+    account.points += awarded
+    db.add(claim)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        account = get_or_create_visitor_account(db, visitor_id)
+        existing = (
+            db.query(VisitorRewardClaim)
+            .filter(
+                VisitorRewardClaim.visitor_id == visitor_key,
+                VisitorRewardClaim.challenge_date == challenge_date,
+            )
+            .first()
+        )
+
+        return {
+            "already_played": True,
+            "correct": existing.is_correct if existing else False,
+            "points_awarded": existing.points_awarded if existing else 0,
+            "total_points": account.points,
+        }
+
+    db.refresh(account)
+
     return {
         "already_played": False,
         "correct": correct,

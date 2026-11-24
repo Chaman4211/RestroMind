@@ -1,7 +1,8 @@
 """Associate upload table zones with their upload source."""
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "b82d7e4a91c3"
 down_revision = "a71d8e4c9f20"

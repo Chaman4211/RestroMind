@@ -19,16 +19,26 @@ import {
   getOrderFeedback,
   getPublicMenu,
   getPublicRestaurantTable,
+  getPublicRestaurantTables,
   getPublicOrderServiceRequests,
-  getTableRewards,
-  submitTableRewardAnswer,
+  getVisitorRewards,
+  submitVisitorRewardAnswer,
+  updateGamePresence,
+  getGamePlayers,
+  getGameInvitations,
+  sendGameInvitation,
+  acceptGameInvitation,
+  declineGameInvitation,
+  getGameRoom,
+  makeGameMove,
   getRestaurantTables,
   updateMenuItem,
   updateRestaurantOrderStatus,
   type MenuItem,
   type OrderStatus,
   type RestaurantOrder,
-  type TableRewards,
+  type VisitorRewards,
+  type CustomerGameType,
   type ServiceRequestType,
 } from '../services/api'
 import './OrderingPages.css'
@@ -71,6 +81,18 @@ function formatTableLabel(tableNumber?: string | null, fallbackId?: number) {
   if (!tableNumber) return fallbackId ? `Table ${fallbackId}` : 'your table'
   const numericPart = tableNumber.match(/\d+/)?.[0]
   return numericPart ? `Table ${Number(numericPart)}` : `Table ${tableNumber}`
+}
+
+
+function getOrCreateVisitorId(): string {
+  const storageKey = 'restromind_visitor_id'
+  const existing = localStorage.getItem(storageKey)
+
+  if (existing) return existing
+
+  const visitorId = crypto.randomUUID()
+  localStorage.setItem(storageKey, visitorId)
+  return visitorId
 }
 
 function CustomerServicePanel({
@@ -290,22 +312,25 @@ function CustomerWifiPanel() {
 function CustomerRewardsPanel({ tableId }: { tableId: number }) {
   const queryClient = useQueryClient()
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
+  const [visitorId] = useState(() => getOrCreateVisitorId())
 
   const rewardsQuery = useQuery({
-    queryKey: ["table-rewards", tableId],
-    queryFn: () => getTableRewards(tableId),
+    queryKey: ['visitor-rewards', visitorId, tableId],
+    queryFn: () => getVisitorRewards(visitorId, tableId),
     enabled: tableId > 0,
   })
 
   const answerMutation = useMutation({
     mutationFn: (answerIndex: number) =>
-      submitTableRewardAnswer(tableId, answerIndex),
+      submitVisitorRewardAnswer(visitorId, tableId, answerIndex),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["table-rewards", tableId] })
+      queryClient.invalidateQueries({
+        queryKey: ['visitor-rewards', visitorId],
+      })
     },
   })
 
-  const rewards: TableRewards | undefined = rewardsQuery.data
+  const rewards: VisitorRewards | undefined = rewardsQuery.data
 
   return (
     <section className="customer-rewards-panel">
@@ -337,7 +362,7 @@ function CustomerRewardsPanel({ tableId }: { tableId: number }) {
             <div className="customer-rewards-result">
               <strong>
                 {rewards.last_answer_correct
-                  ? "Correct answer! Well done."
+                  ? 'Correct answer! Well done.'
                   : "Today's attempt has been used."}
               </strong>
               <p>
@@ -353,7 +378,7 @@ function CustomerRewardsPanel({ tableId }: { tableId: number }) {
                   <button
                     type="button"
                     key={option}
-                    className={selectedAnswer === index ? "selected" : ""}
+                    className={selectedAnswer === index ? 'selected' : ''}
                     disabled={answerMutation.isPending}
                     onClick={() => setSelectedAnswer(index)}
                   >
@@ -371,7 +396,7 @@ function CustomerRewardsPanel({ tableId }: { tableId: number }) {
                   }
                 }}
               >
-                {answerMutation.isPending ? "Checking..." : "Submit answer"}
+                {answerMutation.isPending ? 'Checking...' : 'Submit answer'}
               </button>
               {answerMutation.isError && (
                 <p className="ordering-error">{answerMutation.error.message}</p>
@@ -388,57 +413,403 @@ function CustomerRewardsPanel({ tableId }: { tableId: number }) {
         </div>
       )}
       <p className="ordering-footnote">
-        Points are currently shared by this table and are not yet linked to an individual customer account.
+        Your points are saved in this browser. You can use them when scanning another table's QR code.
       </p>
     </section>
   )
 }
 
-function CustomerMiniGame() {
-  const [cells, setCells] = useState<(string | null)[]>(Array(9).fill(null))
-  const [turn, setTurn] = useState<'X' | 'O'>('X')
-  const [finished, setFinished] = useState(false)
+function CustomerGameLobby({ tableId }: { tableId: number }) {
+  const queryClient = useQueryClient()
+  const [visitorId] = useState(() => getOrCreateVisitorId())
+  const [selectedTableId, setSelectedTableId] = useState('all')
 
-  const lines = [
-    [0, 1, 2], [3, 4, 5], [6, 7, 8],
-    [0, 3, 6], [1, 4, 7], [2, 5, 8],
-    [0, 4, 8], [2, 4, 6],
-  ]
-  const winner = lines
-    .map(([a, b, c]) => cells[a] && cells[a] === cells[b] && cells[a] === cells[c] ? cells[a] : null)
-    .find(Boolean)
-
-  function play(index: number) {
-    if (cells[index] || finished || winner) return
-    const next = [...cells]
-    next[index] = turn
-    setCells(next)
-    setTurn(turn === 'X' ? 'O' : 'X')
-    if (next.every(Boolean) || lines.some(([a, b, c]) => next[a] && next[a] === next[b] && next[a] === next[c])) {
-      setFinished(true)
+  useEffect(() => {
+    const sendHeartbeat = () => {
+      void updateGamePresence(visitorId, tableId).catch(() => undefined)
     }
+
+    sendHeartbeat()
+    const interval = window.setInterval(sendHeartbeat, 25000)
+
+    return () => window.clearInterval(interval)
+  }, [visitorId, tableId])
+
+  const playersQuery = useQuery({
+    queryKey: ['game-players', visitorId],
+    queryFn: () => getGamePlayers(visitorId),
+    enabled: tableId > 0,
+    refetchInterval: 2000,
+  })
+
+  const tablesQuery = useQuery({
+    queryKey: ['public-restaurant-tables'],
+    queryFn: getPublicRestaurantTables,
+    enabled: tableId > 0,
+    staleTime: 60000,
+  })
+
+  const invitationsQuery = useQuery({
+    queryKey: ['game-invitations', visitorId],
+    queryFn: () => getGameInvitations(visitorId),
+    enabled: tableId > 0,
+    refetchInterval: 2000,
+  })
+
+  const invitations = invitationsQuery.data?.invitations ?? []
+  const players = playersQuery.data?.players ?? []
+  const restaurantTables = tablesQuery.data ?? []
+
+  const tableLabel = (id: number | null | undefined) => {
+    if (id == null) return 'Unknown table'
+    const table = restaurantTables.find((item) => item.id === id)
+    return table ? `Table ${table.table_number}` : 'Unknown table'
   }
 
-  function reset() {
-    setCells(Array(9).fill(null))
-    setTurn('X')
-    setFinished(false)
+  const visiblePlayers = selectedTableId === 'all'
+    ? players
+    : players.filter((player) => player.table_id === Number(selectedTableId))
+
+  const activeInvitation = invitations.find(
+    (item) => item.status === 'ACCEPTED' && item.room_code,
+  )
+
+  const roomQuery = useQuery({
+    queryKey: ['customer-game-room', activeInvitation?.room_code, visitorId],
+    queryFn: () => getGameRoom(activeInvitation!.room_code!, visitorId),
+    enabled: Boolean(activeInvitation?.room_code),
+    refetchInterval: 1500,
+  })
+
+  const refreshGameData = () => {
+    void queryClient.invalidateQueries({ queryKey: ['game-players', visitorId] })
+    void queryClient.invalidateQueries({ queryKey: ['game-invitations', visitorId] })
+  }
+
+  const inviteMutation = useMutation({
+    mutationFn: ({
+      receiverId,
+      gameType,
+    }: {
+      receiverId: string
+      gameType: CustomerGameType
+    }) => sendGameInvitation(visitorId, receiverId, tableId, gameType),
+    onSuccess: refreshGameData,
+  })
+
+  const acceptMutation = useMutation({
+    mutationFn: (invitationId: number) =>
+      acceptGameInvitation(invitationId, visitorId),
+    onSuccess: refreshGameData,
+  })
+
+  const declineMutation = useMutation({
+    mutationFn: (invitationId: number) =>
+      declineGameInvitation(invitationId, visitorId),
+    onSuccess: refreshGameData,
+  })
+
+  const moveMutation = useMutation({
+    mutationFn: (position: number) =>
+      makeGameMove(activeInvitation!.room_code!, visitorId, position),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['customer-game-room', activeInvitation?.room_code, visitorId],
+      })
+    },
+  })
+
+  const incomingInvitations = invitations.filter(
+    (item) => item.receiver_id === visitorId && item.status === 'PENDING',
+  )
+
+  const outgoingInvitations = invitations.filter(
+    (item) => item.sender_id === visitorId && item.status === 'PENDING',
+  )
+
+  const room = roomQuery.data
+  const isMyTurn = room?.status === 'ACTIVE' && room.current_turn === room.player_role
+  const gameFinished = room?.status === 'FINISHED' || room?.status === 'DRAW'
+  const replayOpponentId = activeInvitation
+    ? activeInvitation.sender_id === visitorId
+      ? activeInvitation.receiver_id
+      : activeInvitation.sender_id
+    : null
+  const replayOpponentTableId = activeInvitation
+    ? activeInvitation.sender_id === visitorId
+      ? activeInvitation.receiver_table_id
+      : activeInvitation.sender_table_id
+    : null
+
+  const gameStatus = !room
+    ? 'Loading game...'
+    : room.status === 'WAITING'
+      ? 'Waiting for another player'
+      : room.status === 'DRAW'
+        ? "It's a draw!"
+        : room.status === 'FINISHED'
+          ? room.winner === room.player_role
+            ? 'You won!'
+            : 'Your opponent won!'
+          : isMyTurn
+            ? 'Your turn'
+            : "Opponent's turn"
+
+  function playPosition(position: number) {
+    if (!room || !isMyTurn || gameFinished || moveMutation.isPending) return
+    moveMutation.mutate(position)
   }
 
   return (
-    <section className="customer-game-panel">
-      <p className="ordering-eyebrow">QUICK GAME</p>
-      <h2>Tic-Tac-Toe</h2>
-      <p>{winner ? `${winner} wins!` : finished ? "It's a draw!" : `Player ${turn}'s turn`}</p>
-      <div className="customer-game-grid">
-        {cells.map((cell, index) => (
-          <button type="button" key={index} onClick={() => play(index)} disabled={Boolean(cell) || finished}>
-            {cell}
-          </button>
-        ))}
+    <section className="customer-game-panel customer-game-lobby">
+      <p className="ordering-eyebrow">PLAY TOGETHER</p>
+      <h2>Restaurant Games</h2>
+      <p>Choose a table to find customers. You can play with someone at your own table or another table.</p>
+
+      <div className="customer-game-table-filter">
+        <label htmlFor="customer-game-table-filter">Choose a table</label>
+        <select
+          id="customer-game-table-filter"
+          value={selectedTableId}
+          onChange={(event) => setSelectedTableId(event.target.value)}
+        >
+          <option value="all">All tables</option>
+          {restaurantTables.map((table) => (
+            <option key={table.id} value={table.id}>
+              Table {table.table_number}
+            </option>
+          ))}
+        </select>
       </div>
-      <button type="button" onClick={reset}>Play again</button>
-      <p className="ordering-footnote">This mini-game is for fun and does not award points.</p>
+
+      {tablesQuery.isError && (
+        <p className="ordering-error">Could not load restaurant tables.</p>
+      )}
+
+      {playersQuery.isLoading && (
+        <p className="ordering-message">Finding customers who are online...</p>
+      )}
+
+      {playersQuery.isError && (
+        <p className="ordering-error">Could not load online players. Please refresh the page.</p>
+      )}
+
+      <div className="customer-game-players">
+        <h3>Customers online ({visiblePlayers.length})</h3>
+        {visiblePlayers.length === 0 ? (
+          <p className="ordering-footnote">
+            No other customers are online at this table right now. Keep this page open and check again shortly.
+          </p>
+        ) : (
+          visiblePlayers.map((player) => (
+            <div className="customer-game-player" key={player.visitor_id}>
+              <div>
+                <strong>Customer at {tableLabel(player.table_id)}</strong>
+                <span>Available to play</span>
+              </div>
+              <div className="customer-game-invite-actions">
+                <button
+                  type="button"
+                  disabled={inviteMutation.isPending || outgoingInvitations.length > 0}
+                  onClick={() => inviteMutation.mutate({
+                    receiverId: player.visitor_id,
+                    gameType: 'TIC_TAC_TOE',
+                  })}
+                >
+                  Tic-Tac-Toe
+                </button>
+                <button
+                  type="button"
+                  disabled={inviteMutation.isPending || outgoingInvitations.length > 0}
+                  onClick={() => inviteMutation.mutate({
+                    receiverId: player.visitor_id,
+                    gameType: 'CONNECT_FOUR',
+                  })}
+                >
+                  Connect Four
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {inviteMutation.isError && (
+        <p className="ordering-error">{inviteMutation.error.message}</p>
+      )}
+
+      {inviteMutation.isSuccess && (
+        <p className="customer-service-success">Game invitation sent.</p>
+      )}
+
+      {incomingInvitations.length > 0 && (
+        <div className="customer-game-invitations">
+          <h3>Game invitations</h3>
+          {incomingInvitations.map((invitation) => (
+            <div className="customer-game-invitation" key={invitation.id}>
+              <div>
+                <strong>
+                  {invitation.game_type === 'TIC_TAC_TOE' ? 'Tic-Tac-Toe' : 'Connect Four'}
+                </strong>
+                <span>
+                  Invitation from {tableLabel(invitation.sender_table_id)}
+                </span>
+              </div>
+              <div className="customer-game-invite-actions">
+                <button
+                  type="button"
+                  disabled={acceptMutation.isPending || declineMutation.isPending}
+                  onClick={() => acceptMutation.mutate(invitation.id)}
+                >
+                  Accept
+                </button>
+                <button
+                  type="button"
+                  disabled={acceptMutation.isPending || declineMutation.isPending}
+                  onClick={() => declineMutation.mutate(invitation.id)}
+                >
+                  Decline
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {acceptMutation.isError && (
+        <p className="ordering-error">{acceptMutation.error.message}</p>
+      )}
+
+      {declineMutation.isError && (
+        <p className="ordering-error">{declineMutation.error.message}</p>
+      )}
+
+      {outgoingInvitations.length > 0 && (
+        <div className="customer-game-invitations">
+          <h3>Sent invitations</h3>
+          {outgoingInvitations.map((invitation) => (
+            <p key={invitation.id}>
+              {invitation.game_type === 'TIC_TAC_TOE' ? 'Tic-Tac-Toe' : 'Connect Four'}
+              {' · Waiting for '}
+              {tableLabel(invitation.receiver_table_id)}
+              {' to respond'}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {activeInvitation && (
+        <div className="customer-live-game">
+          <div className="customer-live-game-heading">
+            <div>
+              <p className="ordering-eyebrow">MULTIPLAYER MATCH</p>
+              <h3>
+                {room?.game_type === 'CONNECT_FOUR' ? 'Connect Four' : 'Tic-Tac-Toe'}
+              </h3>
+            </div>
+            <span>Room {activeInvitation.room_code}</span>
+          </div>
+
+          {roomQuery.isLoading && (
+            <p className="ordering-message">Loading your shared game...</p>
+          )}
+
+          {roomQuery.isError && (
+            <p className="ordering-error">Could not load the game. Please try again.</p>
+          )}
+
+          {room && (
+            <>
+              <p className="customer-game-status">{gameStatus}</p>
+              <p className="ordering-footnote">
+                You are Player {room.player_role}. Your opponent is at{' '}
+                {room.player_role === 'X'
+                  ? tableLabel(room.player_o_table_id)
+                  : tableLabel(room.player_x_table_id)}.
+              </p>
+
+              {room.game_type === 'TIC_TAC_TOE' ? (
+                <div className="customer-game-grid">
+                  {room.board.map((cell, index) => (
+                    <button
+                      type="button"
+                      key={index}
+                      className={cell === 'X' ? 'game-cell-x' : cell === 'O' ? 'game-cell-o' : ''}
+                      disabled={!isMyTurn || Boolean(cell) || gameFinished || moveMutation.isPending}
+                      onClick={() => playPosition(index)}
+                    >
+                      {cell}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="customer-connect-four-grid">
+                  {room.board.map((cell, index) => {
+                    const column = index % 7
+                    const columnFull = room.board[column] !== null
+                    return (
+                      <button
+                        type="button"
+                        key={index}
+                        className={
+                          cell === 'X'
+                            ? 'connect-four-x'
+                            : cell === 'O'
+                              ? 'connect-four-o'
+                              : ''
+                        }
+                        aria-label={`Column ${column + 1}, row ${Math.floor(index / 7) + 1}`}
+                        disabled={!isMyTurn || columnFull || gameFinished || moveMutation.isPending}
+                        onClick={() => playPosition(column)}
+                      />
+                    )
+                  })}
+                </div>
+              )}
+
+              {moveMutation.isError && (
+                <p className="ordering-error">{moveMutation.error.message}</p>
+              )}
+
+              {gameFinished && (
+                <div className="customer-game-finished">
+                  <p className="customer-service-success">
+                    Game completed. You can play another match with the same customer.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={
+                      !replayOpponentId ||
+                      inviteMutation.isPending ||
+                      outgoingInvitations.length > 0
+                    }
+                    onClick={() => {
+                      if (replayOpponentId && room) {
+                        inviteMutation.mutate({
+                          receiverId: replayOpponentId,
+                          gameType: room.game_type,
+                        })
+                      }
+                    }}
+                  >
+                    {inviteMutation.isPending
+                      ? 'Sending invitation...'
+                      : `Play Again with ${tableLabel(replayOpponentTableId)}`}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {invitationsQuery.isError && (
+        <p className="ordering-error">Could not refresh game invitations.</p>
+      )}
+
+      <p className="ordering-footnote">
+        Keep this page open to stay visible to other customers. Games are for fun and do not award points yet.
+      </p>
     </section>
   )
 }
@@ -1062,7 +1433,7 @@ export function OrderTrackingPage() {
     retry: false,
   })
   const [now, setNow] = useState(0)
-  const [activeTab, setActiveTab] = useState<'track' | 'help' | 'rewards'>('track')
+  const [activeTab, setActiveTab] = useState<'track' | 'help' | 'wifi' | 'rewards'>('track')
   const queryClient = useQueryClient()
   const eatingCompleteMutation = useMutation({
     mutationFn: () => markOrderEatingComplete(token),
@@ -1113,13 +1484,16 @@ export function OrderTrackingPage() {
       </header>
       <nav className="customer-post-order-tabs" aria-label="Customer options">
         <button type="button" className={activeTab === 'track' ? 'selected' : ''} onClick={() => setActiveTab('track')}>
-          Track Order
+          Order Tracking
         </button>
         <button type="button" className={activeTab === 'help' ? 'selected' : ''} onClick={() => setActiveTab('help')}>
           Call Waiter / Help
         </button>
+        <button type="button" className={activeTab === 'wifi' ? 'selected' : ''} onClick={() => setActiveTab('wifi')}>
+          Wi-Fi
+        </button>
         <button type="button" className={activeTab === 'rewards' ? 'selected' : ''} onClick={() => setActiveTab('rewards')}>
-          Wi-Fi, Tasks & Rewards
+          Rewards & Games
         </button>
       </nav>
 
@@ -1239,11 +1613,14 @@ export function OrderTrackingPage() {
         <CustomerServicePanel tableId={trackedTableId} orderToken={token} />
       )}
 
+      {activeTab === 'wifi' && (
+        <CustomerWifiPanel />
+      )}
+
       {activeTab === 'rewards' && trackedTableId > 0 && (
         <>
-          <CustomerWifiPanel />
           <CustomerRewardsPanel tableId={trackedTableId} />
-          <CustomerMiniGame />
+          <CustomerGameLobby tableId={trackedTableId} />
         </>
       )}
     </CustomerShell>

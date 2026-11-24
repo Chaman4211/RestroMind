@@ -34,6 +34,9 @@ class RestaurantOrder(Base):
     )
     payment_method: Mapped[str | None] = mapped_column(String(40), nullable=True)
     payment_provider: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    transaction_reference: Mapped[str | None] = mapped_column(
+        String(120), nullable=True
+    )
     payment_status: Mapped[str] = mapped_column(
         String(20), default="UNPAID", server_default=text("'UNPAID'"), nullable=False
     )

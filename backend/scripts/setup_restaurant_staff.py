@@ -5,7 +5,6 @@ from sqlalchemy import select
 from app.db.session import SessionLocal
 from app.models.staff_user import StaffUser
 
-
 OWNER_ID = 21
 OWNER_EMAIL = "chamanafzaal01@gmail.com"
 
@@ -16,13 +15,28 @@ TEAM = [
     ("Ahmed Raza", "ahmed.raza.manager@restromind.test", "0300-0000001", "MANAGER"),
     ("Usman Tariq", "usman.tariq.chef@restromind.test", "0300-0000002", "HEAD_CHEF"),
     ("Bilal Ahmed", "bilal.ahmed.chef@restromind.test", "0300-0000003", "CHEF"),
-    ("Hamza Ali", "hamza.ali.kitchen@restromind.test", "0300-0000004", "KITCHEN_ASSISTANT"),
+    (
+        "Hamza Ali",
+        "hamza.ali.kitchen@restromind.test",
+        "0300-0000004",
+        "KITCHEN_ASSISTANT",
+    ),
     ("Ali Hassan", "ali.hassan.waiter@restromind.test", "0300-0000005", "WAITER"),
     ("Fahad Malik", "fahad.malik.waiter@restromind.test", "0300-0000006", "WAITER"),
     ("Saad Iqbal", "saad.iqbal.waiter@restromind.test", "0300-0000007", "WAITER"),
     ("Hira Khan", "hira.khan.cashier@restromind.test", "0300-0000008", "CASHIER"),
-    ("Imran Shah", "imran.shah.cleaning@restromind.test", "0300-0000009", "CLEANING_STAFF"),
-    ("Nadeem Akhtar", "nadeem.akhtar.cleaning@restromind.test", "0300-0000010", "CLEANING_STAFF"),
+    (
+        "Imran Shah",
+        "imran.shah.cleaning@restromind.test",
+        "0300-0000009",
+        "CLEANING_STAFF",
+    ),
+    (
+        "Nadeem Akhtar",
+        "nadeem.akhtar.cleaning@restromind.test",
+        "0300-0000010",
+        "CLEANING_STAFF",
+    ),
     ("Sana Iqbal", "sana.iqbal.host@restromind.test", "0300-0000011", "HOST"),
 ]
 
@@ -60,7 +74,9 @@ def main():
         ).all()
 
         existing_emails = set(
-            db.scalars(select(StaffUser.email).where(StaffUser.email.is_not(None))).all()
+            db.scalars(
+                select(StaffUser.email).where(StaffUser.email.is_not(None))
+            ).all()
         )
         missing_team = [member for member in TEAM if member[1] not in existing_emails]
 
@@ -94,10 +110,7 @@ def main():
 
         db.commit()
 
-        total = db.scalar(select(StaffUser).count()) if False else None
-        staff = db.scalars(
-            select(StaffUser).order_by(StaffUser.id)
-        ).all()
+        staff = db.scalars(select(StaffUser).order_by(StaffUser.id)).all()
 
         print("\\nSETUP COMPLETE")
         print(f"Removed fake profiles: {len(fake_users)}")

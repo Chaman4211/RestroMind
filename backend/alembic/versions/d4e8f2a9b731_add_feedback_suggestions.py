@@ -1,7 +1,8 @@
 """Add customer suggestions to order feedback."""
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "d4e8f2a9b731"
 down_revision = "c7d9e2f4a610"

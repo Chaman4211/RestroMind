@@ -149,6 +149,10 @@ export function getPublicRestaurantTable(
   return request<PublicRestaurantTable>(`/public/tables/${tableId}`)
 }
 
+export function getPublicRestaurantTables(): Promise<PublicRestaurantTable[]> {
+  return request<PublicRestaurantTable[]>('/public/tables')
+}
+
 export type SharedCartLine = {
   menu_item_id: number
   item_name: string
@@ -875,4 +879,312 @@ export async function getRTSPCameraFrame(id: number): Promise<Blob> {
   }
 
   return response.blob()
+}
+
+
+export type VisitorRewards = {
+  visitor_id: string
+  table_id: number
+  points: number
+  challenge_date: string
+  question: string
+  options: string[]
+  already_played: boolean
+  last_answer_correct: boolean | null
+  points_awarded_today: number
+}
+
+export function getVisitorRewards(
+  visitorId: string,
+  tableId: number,
+): Promise<VisitorRewards> {
+  return request<VisitorRewards>(
+    `/rewards/visitor/${encodeURIComponent(visitorId)}/table/${tableId}`,
+  )
+}
+
+export function submitVisitorRewardAnswer(
+  visitorId: string,
+  tableId: number,
+  answerIndex: number,
+): Promise<RewardAnswerResult> {
+  return request<RewardAnswerResult>(
+    `/rewards/visitor/${encodeURIComponent(visitorId)}/table/${tableId}/answer`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ answer_index: answerIndex }),
+    },
+  )
+}
+
+export type CustomerGameType = 'TIC_TAC_TOE' | 'CONNECT_FOUR'
+
+export type GamePlayer = {
+  visitor_id: string
+  table_id: number
+  table_name: string
+  last_seen: string
+}
+
+export type GameInvitation = {
+  id: number
+  sender_id: string
+  receiver_id: string
+  sender_table_id: number
+  receiver_table_id: number
+  game_type: CustomerGameType
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED'
+  room_code: string | null
+  created_at: string
+  expires_at: string
+}
+
+export type GameRoom = {
+  room_code: string
+  game_type: CustomerGameType
+  board: (string | null)[]
+  status: 'WAITING' | 'ACTIVE' | 'FINISHED' | 'DRAW'
+  current_turn: 'X' | 'O' | null
+  winner: 'X' | 'O' | null
+  player_role: 'X' | 'O' | null
+  player_x_table_id: number
+  player_o_table_id: number | null
+}
+
+export type GameInvitationsResponse = {
+  invitations: GameInvitation[]
+}
+
+export type GamePlayersResponse = {
+  players: GamePlayer[]
+}
+
+export function updateGamePresence(
+  visitorId: string,
+  tableId: number,
+) {
+  return request<{
+    visitor_id: string
+    table_id: number
+    status: string
+  }>('/games/presence', {
+    method: 'POST',
+    body: JSON.stringify({
+      visitor_id: visitorId,
+      table_id: tableId,
+    }),
+  })
+}
+
+export function getGamePlayers(
+  visitorId: string,
+): Promise<GamePlayersResponse> {
+  return request<GamePlayersResponse>(
+    `/games/players?visitor_id=${encodeURIComponent(visitorId)}`,
+  )
+}
+
+export function getGameInvitations(
+  visitorId: string,
+): Promise<GameInvitationsResponse> {
+  return request<GameInvitationsResponse>(
+    `/games/invitations?visitor_id=${encodeURIComponent(visitorId)}`,
+  )
+}
+
+export function sendGameInvitation(
+  senderId: string,
+  receiverId: string,
+  tableId: number,
+  gameType: CustomerGameType,
+): Promise<GameInvitation> {
+  return request<GameInvitation>('/games/invitations', {
+    method: 'POST',
+    body: JSON.stringify({
+      sender_id: senderId,
+      receiver_id: receiverId,
+      table_id: tableId,
+      game_type: gameType,
+    }),
+  })
+}
+
+export function acceptGameInvitation(
+  invitationId: number,
+  visitorId: string,
+) {
+  return request<{
+    invitation: GameInvitation
+    room: {
+      room_code: string
+      game_type: CustomerGameType
+      board: (string | null)[]
+      status: string
+      current_turn: string | null
+      player_x_id: string
+      player_o_id: string
+    }
+  }>(
+    `/games/invitations/${invitationId}/accept?visitor_id=${encodeURIComponent(visitorId)}`,
+    { method: 'POST' },
+  )
+}
+
+export function declineGameInvitation(
+  invitationId: number,
+  visitorId: string,
+): Promise<GameInvitation> {
+  return request<GameInvitation>(
+    `/games/invitations/${invitationId}/decline?visitor_id=${encodeURIComponent(visitorId)}`,
+    { method: 'POST' },
+  )
+}
+
+export function getGameRoom(
+  roomCode: string,
+  visitorId: string,
+): Promise<GameRoom> {
+  return request<GameRoom>(
+    `/games/rooms/${encodeURIComponent(roomCode)}?player_id=${encodeURIComponent(visitorId)}`,
+  )
+}
+
+export function makeGameMove(
+  roomCode: string,
+  visitorId: string,
+  position: number,
+): Promise<GameRoom> {
+  return request<GameRoom>(
+    `/games/rooms/${encodeURIComponent(roomCode)}/move`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        player_id: visitorId,
+        position,
+      }),
+    },
+  )
+}
+
+export type RestaurantProfile = {
+  restaurant_name: string
+  currency: string
+}
+
+export type BusinessAnalyticsReport = {
+  restaurant_name: string
+  currency: string
+  start_date: string
+  end_date: string
+  summary: {
+    orders: number
+    gross_order_value: number
+    confirmed_revenue: number
+    outstanding_amount: number
+    failed_amount: number
+    refunded_amount: number
+    average_order_value: number
+    paid_orders: number
+    pending_orders: number
+    failed_orders: number
+    refunded_orders: number
+    cancelled_orders: number
+  }
+  comparison: {
+    previous_start: string
+    previous_end: string
+    previous_orders: number
+    previous_gross_order_value: number
+    previous_confirmed_revenue: number
+    gross_change_percent: number | null
+    revenue_change_percent: number | null
+  }
+  payment_methods: Record<string, {
+    orders: number
+    paid: number
+    pending: number
+    failed: number
+    refunded: number
+  }>
+  daily_sales: Array<{
+    date: string
+    orders: number
+    sales: number
+    received: number
+  }>
+  orders: Array<{
+    order_number: string
+    table_number: string
+    created_at: string
+    total: number
+    payment_method: string
+    payment_provider: string
+    payment_status: string
+    transaction_reference: string
+    order_status: string
+  }>
+}
+
+export function getRestaurantProfile(): Promise<RestaurantProfile> {
+  return request<RestaurantProfile>('/analytics/profile')
+}
+
+export function updateRestaurantProfile(
+  payload: RestaurantProfile,
+): Promise<RestaurantProfile> {
+  return request<RestaurantProfile>('/analytics/profile', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function getBusinessAnalytics(
+  startDate: string,
+  endDate: string,
+): Promise<BusinessAnalyticsReport> {
+  const params = new URLSearchParams({
+    start_date: startDate,
+    end_date: endDate,
+  })
+  return request<BusinessAnalyticsReport>(`/analytics/report?${params}`)
+}
+
+export async function downloadBusinessAnalytics(
+  format: 'pdf' | 'csv',
+  startDate: string,
+  endDate: string,
+): Promise<void> {
+  const params = new URLSearchParams({
+    start_date: startDate,
+    end_date: endDate,
+  })
+  const token = getAccessToken()
+
+  const response = await fetch(
+    `${API_BASE_URL}/analytics/export.${format}?${params}`,
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
+  )
+
+  if (!response.ok) {
+    let message = `Download failed (${response.status})`
+    try {
+      const body = await response.json()
+      message = body.detail || message
+    } catch {
+      // Keep the HTTP status message.
+    }
+    throw new Error(message)
+  }
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `restromind-report-${startDate}-${endDate}.${format}`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }
